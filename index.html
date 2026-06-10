@@ -549,6 +549,8 @@ html,body{
       style="flex:1; background:transparent; border:none; outline:none;
              color:#f0d060; font-size:0.85rem; min-width:0;"
       oninput="applyServerUrl(this.value)"
+      onchange="applyServerUrl(this.value)"
+      onpaste="setTimeout(()=>applyServerUrl(this.value),0)"
     >
     <span id="server-url-status" style="font-size:0.8rem; white-space:nowrap; color:#aaa">LAN mode</span>
   </div>
@@ -1449,5 +1451,4 @@ window.addEventListener('load', ()=>{
   if (inp) {
     inp.value = saved;
     if (saved) {
-      const s = document.getElementById('server-url-status');
-      if (s) { s.textContent = '🟢 Online'; s.style.color = '#7cf
+      const s = document
