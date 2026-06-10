@@ -281,6 +281,58 @@ html,body{
 .ecard.dead{opacity:.45;border-color:#222;}
 .edead{position:absolute;top:4px;right:6px;font-size:.65rem;color:var(--red);}
 
+/* ── header pills ── */
+.hdr-pills{display:flex;gap:5px;align-items:center;flex-shrink:0;}
+.hpill{
+  font-size:.72rem;padding:3px 8px;border-radius:20px;
+  border:1px solid var(--border);background:var(--bg3);color:var(--muted);
+  white-space:nowrap;cursor:pointer;user-select:none;
+  transition:border-color .15s,color .15s;
+}
+.hpill.lv-pill{border-color:var(--gold-border);color:var(--gold2);background:var(--gold-glow);}
+.hpill.bag-pill{background:none;border-color:var(--border2);font-size:.75rem;}
+.hpill.bag-pill:hover,.hpill.bag-pill.open{border-color:var(--gold);color:var(--gold2);}
+
+/* XP bar in player card */
+.xpbar{background:#0a0a2e;border-radius:3px;height:4px;margin-top:4px;overflow:hidden;}
+.xpfill{height:100%;border-radius:3px;background:var(--blue);transition:width .6s ease;}
+.pcard-xp{font-size:.68rem;color:var(--muted);margin-top:2px;}
+
+/* ── quest strip ── */
+#quest-strip{
+  padding:5px 12px;border-bottom:1px solid var(--border);
+  background:var(--bg);display:none;align-items:center;
+  cursor:pointer;flex-shrink:0;gap:8px;transition:background .15s;
+}
+#quest-strip.active{display:flex;}
+#quest-strip:hover{background:var(--bg2);}
+.qs-icon{font-size:.8rem;flex-shrink:0;}
+.qs-text{
+  font-size:.76rem;color:var(--text2);flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic;
+}
+.qs-stats{display:flex;gap:8px;flex-shrink:0;font-size:.7rem;color:var(--muted);}
+
+/* ── bag drawer ── */
+#bag-drawer{
+  border-bottom:1px solid var(--border);background:var(--bg2);
+  padding:10px 14px 12px;flex-shrink:0;display:none;
+}
+#bag-drawer.open{display:block;animation:slideDown .18s ease-out;}
+@keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bd-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.bd-title{font-size:.75rem;font-weight:bold;color:var(--gold2);letter-spacing:.06em;}
+.bd-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:2px 6px;}
+.bd-items{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;}
+.bd-item{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:14px;padding:4px 10px;font-size:.78rem;color:var(--text);
+}
+.bd-empty{font-size:.8rem;color:var(--muted);font-style:italic;padding:2px 0;}
+.bd-stats{display:flex;gap:16px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:.76rem;}
+.bd-stat{color:var(--muted);}
+.bd-stat b{color:var(--text);font-weight:600;}
+
 /* scroll body */
 #scroll-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;}
 #scroll-body::-webkit-scrollbar{width:4px;}
@@ -757,6 +809,10 @@ html,body{
       <div class="hdr-name" id="hdr-name">LoreGate</div>
       <div class="hdr-theme" id="hdr-theme">—</div>
     </div>
+    <div class="hdr-pills">
+      <span class="hpill lv-pill" id="hpill-lv">Lv 1</span>
+      <button class="hpill bag-pill" id="hpill-bag" onclick="toggleBag()">🎒 <span id="bag-ct">0</span></button>
+    </div>
     <div class="sdot" id="sdot" title="Server status"></div>
   </div>
 
@@ -765,6 +821,32 @@ html,body{
       <div class="pcard-lbl" id="p-lbl">Player</div>
       <div class="pcard-val" id="p-val">HP 20/20</div>
       <div class="hpbar"><div class="hpfill" id="p-fill" style="width:100%"></div></div>
+      <div class="xpbar"><div class="xpfill" id="xp-fill" style="width:0%"></div></div>
+      <div class="pcard-xp" id="p-xp">✨ 0 / 100 xp</div>
+    </div>
+  </div>
+
+  <!-- quest objective strip -->
+  <div id="quest-strip" onclick="toggleBag()">
+    <span class="qs-icon">📜</span>
+    <span class="qs-text" id="qs-text">ยังไม่มีเควส</span>
+    <div class="qs-stats">
+      <span id="qs-gold">💰 0</span>
+    </div>
+  </div>
+
+  <!-- inventory / stats drawer -->
+  <div id="bag-drawer">
+    <div class="bd-head">
+      <div class="bd-title">🎒 กระเป๋า &amp; สถานะ</div>
+      <button class="bd-close" onclick="toggleBag()">✕</button>
+    </div>
+    <div class="bd-items" id="bd-items"><span class="bd-empty">— ยังไม่มีไอเทม —</span></div>
+    <div class="bd-stats">
+      <div class="bd-stat">❤ HP <b id="bd-hp">20/20</b></div>
+      <div class="bd-stat">⚔️ Lv <b id="bd-lv">1</b></div>
+      <div class="bd-stat">✨ XP <b id="bd-xp">0</b></div>
+      <div class="bd-stat">💰 Gold <b id="bd-gold">0</b></div>
     </div>
   </div>
 
@@ -825,8 +907,10 @@ function toggleUrlPanel(){
    GAME STATE
 ════════════════════════════════════════════════ */
 const GS = {
-  player: { name:'Adventurer', cls:'Wanderer', hp:20, maxHp:20, inventory:[] },
+  player: { name:'Adventurer', cls:'Wanderer', hp:20, maxHp:20,
+            inventory:[], exp:0, level:1, gold:0 },
   enemies: {},
+  quest: '',
 };
 let roomId   = null;
 let pendRoll = null;   // {dice, reason}
@@ -1223,13 +1307,84 @@ function setPendRoll(dice, reason){
    HP MANAGEMENT
 ════════════════════════════════════════════════ */
 function syncPlayerCard(){
-  const pct = GS.player.maxHp>0 ? GS.player.hp/GS.player.maxHp*100 : 0;
-  document.getElementById('p-lbl').textContent = GS.player.name;
-  document.getElementById('p-val').textContent =
-    `${GS.player.cls}  HP ${GS.player.hp}/${GS.player.maxHp}`;
+  const p   = GS.player;
+  const pct = p.maxHp>0 ? p.hp/p.maxHp*100 : 0;
+  const xpNeeded = p.level * 100;
+  const xpPct    = Math.min(100, p.exp / xpNeeded * 100);
+
+  document.getElementById('p-lbl').textContent = p.name;
+  document.getElementById('p-val').textContent = `${p.cls}  HP ${p.hp}/${p.maxHp}`;
   const f = document.getElementById('p-fill');
   f.style.width      = pct + '%';
   f.style.background = pct>50 ? '#27ae60' : pct>25 ? '#e67e22' : '#c0392b';
+  document.getElementById('xp-fill').style.width = xpPct + '%';
+  document.getElementById('p-xp').textContent    = `✨ ${p.exp} / ${xpNeeded} xp`;
+
+  // Header pills
+  document.getElementById('hpill-lv').textContent   = `Lv ${p.level}`;
+  document.getElementById('bag-ct').textContent     = p.inventory.length;
+
+  // Quest strip
+  const qs = document.getElementById('quest-strip');
+  if(GS.quest){ qs.classList.add('active'); document.getElementById('qs-text').textContent = GS.quest; }
+  else          qs.classList.remove('active');
+  document.getElementById('qs-gold').textContent = `💰 ${p.gold}`;
+
+  // Bag drawer stats
+  document.getElementById('bd-hp').textContent   = `${p.hp}/${p.maxHp}`;
+  document.getElementById('bd-lv').textContent   = p.level;
+  document.getElementById('bd-xp').textContent   = `${p.exp}/${xpNeeded}`;
+  document.getElementById('bd-gold').textContent = p.gold;
+
+  // Bag drawer items
+  const bi = document.getElementById('bd-items');
+  if(p.inventory.length){
+    bi.innerHTML = p.inventory.map(i=>`<span class="bd-item">${i}</span>`).join('');
+  } else {
+    bi.innerHTML = '<span class="bd-empty">— ยังไม่มีไอเทม —</span>';
+  }
+}
+
+function toggleBag(){
+  const d   = document.getElementById('bag-drawer');
+  const btn = document.getElementById('hpill-bag');
+  const open = d.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  if(open) syncPlayerCard(); // refresh items
+}
+
+function parseDMTags(text){
+  // [QUEST:objective]
+  const qm = text.match(/\[QUEST:([^\]]+)\]/);
+  if(qm){ GS.quest = qm[1].trim(); }
+
+  // [XP:+N] or [XP:N]
+  const xm = text.match(/\[XP:\+?(\d+)\]/);
+  if(xm){
+    GS.player.exp += parseInt(xm[1]);
+    const needed = GS.player.level * 100;
+    if(GS.player.exp >= needed){
+      GS.player.level++;
+      GS.player.exp -= needed;
+      showToast(`🎉 Level Up! Lv ${GS.player.level}`, 'crit');
+    } else {
+      showToast(`✨ +${xm[1]} XP`, 'ok');
+    }
+  }
+
+  // [LEVEL:N]
+  const lm = text.match(/\[LEVEL:(\d+)\]/);
+  if(lm) GS.player.level = parseInt(lm[1]);
+
+  // [GOLD:+N] or [GOLD:-N] or [GOLD:N]
+  const gm = text.match(/\[GOLD:([+-]?\d+)\]/);
+  if(gm){
+    const delta = parseInt(gm[1]);
+    GS.player.gold = Math.max(0, GS.player.gold + delta);
+    if(delta > 0) showToast(`💰 +${delta} Gold`, 'ok');
+  }
+
+  syncPlayerCard();
 }
 
 function applyHPDelta(delta){
@@ -1292,7 +1447,9 @@ async function callDM(msg){
         room_id: roomId,
         player_message: msg,
         game_state:{
-          player:{ name:GS.player.name, hp:GS.player.hp, max_hp:GS.player.maxHp, inventory:GS.player.inventory },
+          player:{ name:GS.player.name, hp:GS.player.hp, max_hp:GS.player.maxHp,
+                   inventory:GS.player.inventory, exp:GS.player.exp,
+                   level:GS.player.level, gold:GS.player.gold },
           enemies: Object.values(GS.enemies).filter(e=>e.hp>0)
             .map(e=>({name:e.name, hp:e.hp, max_hp:e.maxHp})),
         },
@@ -1302,7 +1459,13 @@ async function callDM(msg){
     const d = await r.json();
     if(d.room_snapshot?.player_state){
       const ps = d.room_snapshot.player_state;
-      GS.player.hp = ps.hp; GS.player.maxHp = ps.max_hp;
+      GS.player.hp      = ps.hp;
+      GS.player.maxHp   = ps.max_hp;
+      if(ps.inventory)  GS.player.inventory = ps.inventory;
+      if(ps.exp    != null) GS.player.exp   = ps.exp;
+      if(ps.level  != null) GS.player.level = ps.level;
+      if(ps.gold   != null) GS.player.gold  = ps.gold;
+      if(d.room_snapshot.quest_main) GS.quest = d.room_snapshot.quest_main;
     }
     return d;
   }catch(e){ return {error:e.message, dm_response:''}; }
@@ -1334,6 +1497,9 @@ function processDM(raw){
   // Choice tags → dynamic buttons
   const choices = [...raw.matchAll(/\[CHOICE:([^\]]+)\]/g)].map(m => m[1].trim());
   if(choices.length) renderChoices(choices);
+
+  // Quest / XP / Gold / Level tags
+  parseDMTags(raw);
 
   // Strip all tags for display (including malformed DICE RESULT? tags)
   const display = raw
@@ -1483,6 +1649,10 @@ async function joinRoom(id){
     GS.player.hp        = ps.hp;
     GS.player.maxHp     = ps.max_hp;
     GS.player.inventory = ps.inventory || [];
+    GS.player.exp       = ps.exp   ?? 0;
+    GS.player.level     = ps.level ?? 1;
+    GS.player.gold      = ps.gold  ?? 0;
+    GS.quest = room.quest_main || '';
     GS.enemies = {};
     document.querySelectorAll('.ecard').forEach(e=>e.remove());
 
