@@ -332,8 +332,8 @@ html,body{
   transition:border-color .15s,background .15s;
 }
 .qbtn:hover{border-color:var(--gold);color:var(--gold2);}
-.qbtn.choice-btn{border-color:#3a2a10;background:#1a1408;}
-.qbtn.choice-btn:hover{border-color:var(--gold);background:#2a2010;}
+.qbtn.choice-btn{border-color:var(--gold-border);background:var(--gold-glow);color:var(--gold2);font-weight:500;}
+.qbtn.choice-btn:hover{border-color:var(--gold);background:rgba(201,168,76,.22);color:var(--gold);}
 .irow{display:flex;gap:8px;align-items:flex-end;}
 #msg-input{
   flex:1;background:var(--input-bg);border:1px solid var(--border2);
@@ -398,10 +398,12 @@ html,body{
 #qte-canvas-wrap{
   position:relative;
   width:min(280px,75vw);height:min(280px,75vw);
-  cursor:pointer;
-  /* subtle border glow */
+  cursor:grab;
   border-radius:12px;
   box-shadow:0 0 30px rgba(201,168,76,.15), inset 0 0 0 1px rgba(201,168,76,.1);
+  will-change:transform;
+  touch-action:none;
+  user-select:none;-webkit-user-select:none;
 }
 #dice-canvas{
   width:100%;height:100%;display:block;border-radius:12px;
@@ -734,7 +736,7 @@ html,body{
       <div id="qte-face-num"><div id="qte-face-inner">20</div></div>
     </div>
 
-    <div id="qte-tap-hint">แตะเต๋าหรือกดปุ่มเพื่อทอย</div>
+    <div id="qte-tap-hint">จับเต๋าแล้วเหวี่ยงเพื่อทอย 🎲</div>
     <button id="qte-roll-btn" onclick="qteRoll()">🎲 ทอย!</button>
     <div id="qte-verdict-row">
       <div id="qte-verdict-text">SUCCESS</div>
@@ -1059,28 +1061,61 @@ function launchDice() {
   document.getElementById('qte-face-num').classList.remove('show');
 }
 
-/* ── QTE canvas charge-to-roll ── */
-let chargeT = 0, chargeTimer = null;
-DC.addEventListener('touchstart', e=>{ e.preventDefault(); startCharge(); }, {passive:false});
-DC.addEventListener('mousedown',  ()=>startCharge());
-DC.addEventListener('touchend',   e=>{ e.preventDefault(); releaseCharge(); }, {passive:false});
-DC.addEventListener('mouseup',    ()=>releaseCharge());
+/* ── QTE canvas drag-to-throw ── */
+const CW = document.getElementById('qte-canvas-wrap');
+let dFlick = {active:false, sx:0, sy:0, hist:[]};
 
-function startCharge(){
-  if(!sc || !qteOpen || qteRolled) return;
-  chargeT = Date.now();
-  document.getElementById('qte-canvas-wrap').style.boxShadow =
-    '0 0 50px rgba(201,168,76,.55), inset 0 0 0 1px rgba(201,168,76,.4)';
+function _flickGlow(on){
+  CW.style.boxShadow = on
+    ? '0 0 60px rgba(201,168,76,.7), inset 0 0 0 2px rgba(201,168,76,.55)'
+    : '0 0 30px rgba(201,168,76,.15), inset 0 0 0 1px rgba(201,168,76,.1)';
 }
-function releaseCharge(){
-  if(!chargeT) return;
-  clearInterval(chargeTimer); chargeTimer = null;
-  const held = Date.now()-chargeT; chargeT = 0;
-  document.getElementById('qte-canvas-wrap').style.boxShadow =
-    '0 0 30px rgba(201,168,76,.15), inset 0 0 0 1px rgba(201,168,76,.1)';
-  if(held < 60) return;
-  qteRoll();
+
+DC.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  if(!qteOpen || qteRolled) return;
+  const t = e.touches[0];
+  dFlick = {active:true, sx:t.clientX, sy:t.clientY, hist:[{x:t.clientX,y:t.clientY,t:Date.now()}]};
+  CW.style.transition = 'box-shadow .1s';
+  CW.style.cursor = 'grabbing';
+  _flickGlow(true);
+}, {passive:false});
+
+DC.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(!dFlick.active) return;
+  const t = e.touches[0];
+  const dx = t.clientX - dFlick.sx;
+  const dy = t.clientY - dFlick.sy;
+  CW.style.transition = 'transform .03s';
+  CW.style.transform = `translate(${dx}px,${dy}px) rotate(${dx*.05}deg)`;
+  dFlick.hist.push({x:t.clientX,y:t.clientY,t:Date.now()});
+  if(dFlick.hist.length > 6) dFlick.hist.shift();
+}, {passive:false});
+
+function _endFlick(ex, ey){
+  if(!dFlick.active) return;
+  dFlick.active = false;
+  const h = dFlick.hist;
+  let speed = 0;
+  if(h.length >= 2){
+    const a = h[h.length-1], b = h[Math.max(0, h.length-3)];
+    const dt = Math.max(1, a.t-b.t);
+    speed = Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)/dt*1000;
+  }
+  const dist = Math.sqrt((ex-dFlick.sx)**2+(ey-dFlick.sy)**2);
+  CW.style.transition = 'transform .4s cubic-bezier(.2,.8,.3,1.25), box-shadow .3s';
+  CW.style.transform = '';
+  CW.style.cursor = 'grab';
+  _flickGlow(false);
+  if(!qteRolled && (speed > 150 || dist > 35))  setTimeout(()=>{ if(!qteRolled) qteRoll(); }, 180);
+  else if(!qteRolled && dist < 12)               qteRoll();  // tap
 }
+
+DC.addEventListener('touchend',    e=>{ e.preventDefault(); const t=e.changedTouches[0]; _endFlick(t.clientX,t.clientY); }, {passive:false});
+DC.addEventListener('touchcancel', e=>{ e.preventDefault(); dFlick.active=false; CW.style.transform=''; CW.style.cursor='grab'; _flickGlow(false); }, {passive:false});
+DC.addEventListener('mousedown',   ()=>{ if(!qteOpen||qteRolled) return; CW.style.transition='box-shadow .1s'; _flickGlow(true); });
+DC.addEventListener('mouseup',     ()=>{ _flickGlow(false); if(!qteRolled) qteRoll(); });
 
 /* ════════════════════════════════════════════════
    QTE FUNCTIONS
