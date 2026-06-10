@@ -565,6 +565,7 @@ html,body{
   box-shadow:0 -4px 30px rgba(0,0,0,.3);
 }
 .settings-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;}
+.modal-handle-bar{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 14px;}
 .settings-title{font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
 .settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);}
 .settings-row:last-child{border-bottom:none;}
@@ -640,39 +641,67 @@ html,body{
 <!-- ══ CREATE MODAL ══════════════════════════════════ -->
 <div id="modal-bg">
   <div class="modal-sheet">
-    <div class="modal-title">🗺️ สร้างแคมเปญใหม่</div>
-    <div class="mf">
-      <label class="ml">ชื่อแคมเปญ</label>
-      <input class="mi" id="m-name" placeholder="เช่น: ดาบมังกรเหนือ, The Void Protocol">
-    </div>
-    <div class="mf">
-      <label class="ml">ธีม / Setting</label>
-      <div class="chips">
-        <button class="chip" onclick="pickTheme(this,'Fantasy')">⚔️ Fantasy</button>
-        <button class="chip" onclick="pickTheme(this,'Sci-Fi')">🚀 Sci-Fi</button>
-        <button class="chip" onclick="pickTheme(this,'Horror')">💀 Horror</button>
-        <button class="chip" onclick="pickTheme(this,'Mystery')">🔍 Mystery</button>
-        <button class="chip" onclick="pickTheme(this,'Cyberpunk')">🤖 Cyberpunk</button>
-        <button class="chip" onclick="pickTheme(this,'Pirate')">🏴‍☠️ Pirate</button>
-      </div>
-      <input class="mi" id="m-theme" placeholder="หรือพิมพ์ธีมเอง...">
-    </div>
-    <div class="mf">
-      <label class="ml">ชื่อตัวละคร</label>
-      <input class="mi" id="m-player" placeholder="เช่น: Kira, Aldric, นักรบเงา">
-    </div>
-    <div class="mf">
-      <label class="ml">Class / อาชีพ</label>
-      <input class="mi" id="m-class" placeholder="เช่น: Warrior, Mage, Rogue, Smuggler...">
-    </div>
-    <div class="hp-row">
+
+    <!-- Step 1: Free text input -->
+    <div id="modal-step1">
+      <div class="modal-handle-bar"></div>
+      <div class="modal-title">✨ เริ่มการผจญภัย</div>
+      <p style="font-size:.86rem;color:var(--text2);line-height:1.6;margin-bottom:14px;">
+        บอก AI ว่าอยากเล่นอะไร — ธีม ตัวละคร ฉาก อะไรก็ได้
+      </p>
       <div class="mf">
+        <textarea id="m-desc" class="mi" rows="5"
+          style="resize:none;line-height:1.6;"
+          placeholder="เช่น: อยากเล่น horror ตามสืบคดีฆาตกรรมในเมืองเก่า เป็นนักสืบชื่อ Alex ที่ฉลาดแต่โดดเดี่ยว..."></textarea>
+      </div>
+      <button class="modal-cta" onclick="generateCampaign()">✨ ให้ AI สร้างให้</button>
+      <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="modal-loading" style="display:none;text-align:center;padding:48px 20px;">
+      <div class="tdots" style="justify-content:center;">
+        <span></span><span></span><span></span>
+      </div>
+      <div style="margin-top:14px;font-size:.9rem;color:var(--muted);">AI กำลังสร้างแคมเปญ...</div>
+    </div>
+
+    <!-- Step 2: AI-generated brief (editable) -->
+    <div id="modal-step2" style="display:none;">
+      <div class="modal-handle-bar"></div>
+      <div class="modal-title">📖 แคมเปญของคุณ</div>
+      <div id="m-opening-box" style="display:none;margin-bottom:14px;
+        background:var(--bg3);border-radius:10px;padding:12px 14px;
+        border-left:2px solid var(--gold);">
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:4px;">ฉากเปิด</div>
+        <div id="m-opening" style="font-size:.84rem;color:var(--text2);line-height:1.6;font-style:italic;"></div>
+      </div>
+      <div class="mf">
+        <label class="ml">ชื่อแคมเปญ</label>
+        <input class="mi" id="m-name" placeholder="ชื่อแคมเปญ">
+      </div>
+      <div class="mf">
+        <label class="ml">ธีม</label>
+        <input class="mi" id="m-theme" placeholder="Fantasy, Horror, Sci-Fi...">
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="mf" style="flex:1;">
+          <label class="ml">ชื่อตัวละคร</label>
+          <input class="mi" id="m-player" placeholder="ชื่อ">
+        </div>
+        <div class="mf" style="flex:1;">
+          <label class="ml">Class</label>
+          <input class="mi" id="m-class" placeholder="Warrior, Mage...">
+        </div>
+      </div>
+      <div class="mf" style="max-width:120px;">
         <label class="ml">Max HP</label>
         <input class="mi" id="m-hp" type="number" value="20" min="1" max="999">
       </div>
+      <button class="modal-cta" onclick="confirmCampaign()">⚔️ เริ่มเลย!</button>
+      <button class="modal-cancel" onclick="backToStep1()">← แก้ไข</button>
     </div>
-    <button class="modal-cta" onclick="createRoom()">⚔️ CREATE CAMPAIGN</button>
-    <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+
   </div>
 </div>
 
@@ -1411,40 +1440,78 @@ async function delRoom(e,id){
 }
 
 let _theme='';
-function pickTheme(btn,t){
-  _theme=t;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
-  btn.classList.add('on');
-  document.getElementById('m-theme').value=t;
+function openModal(){
+  document.getElementById('modal-bg').classList.add('open');
+  document.getElementById('modal-step1').style.display  = 'block';
+  document.getElementById('modal-step2').style.display  = 'none';
+  document.getElementById('modal-loading').style.display= 'none';
 }
-function openModal()  { document.getElementById('modal-bg').classList.add('open'); }
-function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+function closeModal(){ document.getElementById('modal-bg').classList.remove('open'); }
+function backToStep1(){
+  document.getElementById('modal-step2').style.display  = 'none';
+  document.getElementById('modal-step1').style.display  = 'block';
+}
 
-async function createRoom(){
+async function generateCampaign(){
+  const desc = document.getElementById('m-desc').value.trim();
+  if(!desc){ showToast('บอกฉันก่อนว่าอยากเล่นอะไร 😊','sys'); return; }
+
+  document.getElementById('modal-step1').style.display  = 'none';
+  document.getElementById('modal-loading').style.display= 'block';
+
+  if(!SERVER_URL){
+    showToast('ยังไม่ได้เชื่อมต่อ server — กรอกเองได้เลย','sys');
+    _showManualStep2(); return;
+  }
+  try{
+    const r = await fetch(SERVER_URL+'/generate-campaign',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({description:desc}),
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d = await r.json();
+    document.getElementById('m-name').value   = d.name         || '';
+    document.getElementById('m-theme').value  = d.theme        || '';
+    document.getElementById('m-player').value = d.player_name  || '';
+    document.getElementById('m-class').value  = d.player_class || '';
+    document.getElementById('m-hp').value     = d.player_hp    || 20;
+    const ob = document.getElementById('m-opening-box');
+    if(d.opening){ document.getElementById('m-opening').textContent=d.opening; ob.style.display='block'; }
+    else { ob.style.display='none'; }
+    document.getElementById('modal-loading').style.display= 'none';
+    document.getElementById('modal-step2').style.display  = 'block';
+  }catch(e){
+    showToast('AI สร้างไม่ได้ — กรอกเองได้เลย','sys');
+    _showManualStep2();
+  }
+}
+function _showManualStep2(){
+  document.getElementById('modal-loading').style.display      = 'none';
+  document.getElementById('m-opening-box').style.display      = 'none';
+  document.getElementById('modal-step2').style.display        = 'block';
+}
+
+async function confirmCampaign(){
   const name  = document.getElementById('m-name').value.trim();
   const theme = document.getElementById('m-theme').value.trim();
   const pname = document.getElementById('m-player').value.trim();
   const cls   = document.getElementById('m-class').value.trim();
-  const hp    = parseInt(document.getElementById('m-hp').value) || 20;
-  if(!name)  { alert('กรุณาใส่ชื่อแคมเปญ'); return; }
-  if(!theme) { alert('กรุณาเลือกหรือพิมพ์ธีม'); return; }
-  if(!pname) { alert('กรุณาใส่ชื่อตัวละคร'); return; }
-  if(!cls)   { alert('กรุณาใส่ class/อาชีพ'); return; }
+  const hp    = parseInt(document.getElementById('m-hp').value)||20;
+  if(!name||!theme||!pname||!cls){ showToast('กรอกข้อมูลให้ครบก่อนนะ 😊','sys'); return; }
   try{
     const r = await fetch(SERVER_URL+'/rooms',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({display_name:name,theme,player_name:pname,player_class:cls,player_max_hp:hp}),
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({display_name:name,theme,player_name:pname,player_class:cls,player_max_hp:hp}),
     });
     if(!r.ok) throw new Error('HTTP '+r.status);
     const room = await r.json();
     closeModal();
+    document.getElementById('m-desc').value='';
     ['m-name','m-theme','m-player','m-class'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('m-hp').value='20';
-    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
-    _theme='';
+    document.getElementById('m-opening-box').style.display='none';
     joinRoom(room.room_id);
-  }catch(e){ alert('สร้างห้องไม่ได้: '+e.message); }
+  }catch(e){ showToast('สร้างห้องไม่ได้: '+e.message,'sys'); }
 }
 
 function hideLobby(){
