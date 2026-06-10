@@ -7,17 +7,33 @@
 <style>
 /* ── Variables ──────────────────────────────────────────── */
 :root{
-  --bg:#080507; --bg2:#0e0a0c; --bg3:#140f10;
+  --bg:#0a0a0a; --bg2:#1c1c1e; --bg3:#2c2c2e;
+  --text:#ffffff; --text2:rgba(235,235,245,.75); --muted:#8e8e93;
+  --border:#38383a; --border2:#545456;
   --gold:#c9a84c; --gold2:#e8c96d;
-  --red:#cc3333; --green:#4caf50; --blue:#4a90d9;
-  --text:#e8dcc8; --muted:#7a6a55; --border:#2a2018;
-  --radius:10px;
+  --red:#ff453a; --green:#30d158; --blue:#0a84ff;
+  --radius:13px;
+  --shadow:0 4px 20px rgba(0,0,0,.5); --shadow-sm:0 1px 6px rgba(0,0,0,.35);
+  --hdr-bg:rgba(18,18,18,.88); --glass:rgba(255,255,255,.06);
+  --input-bg:rgba(255,255,255,.08);
+  --gold-glow:rgba(201,168,76,.18); --gold-border:rgba(201,168,76,.25);
+}
+html.light{
+  --bg:#f2f2f7; --bg2:#ffffff; --bg3:#e5e5ea;
+  --text:#000000; --text2:rgba(60,60,67,.65); --muted:#8e8e93;
+  --border:#d1d1d6; --border2:#c6c6c8;
+  --gold:#a07820; --gold2:#c99b2a;
+  --red:#ff3b30; --green:#34c759; --blue:#007aff;
+  --shadow:0 2px 14px rgba(0,0,0,.1); --shadow-sm:0 1px 4px rgba(0,0,0,.07);
+  --hdr-bg:rgba(242,242,247,.9); --glass:rgba(0,0,0,.04);
+  --input-bg:rgba(0,0,0,.05);
+  --gold-glow:rgba(160,120,32,.1); --gold-border:rgba(160,120,32,.3);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{
   height:100%; margin:0; padding:0;
   background:var(--bg);color:var(--text);
-  font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;overflow:hidden;
 }
 
 /* ══════════════════════════════════════════════════
@@ -34,16 +50,22 @@ html,body{
 #lobby.fade-out{opacity:0;pointer-events:none;}
 
 .lobby-hdr{
-  background:linear-gradient(180deg,#1a1206,var(--bg));
-  border-bottom:1px solid #2a2210;
-  padding:20px 16px 14px;text-align:center;flex-shrink:0;
+  background:var(--hdr-bg);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  padding:16px 16px 14px;text-align:center;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;position:relative;
 }
+.settings-btn{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:none;border:none;font-size:1.3rem;cursor:pointer;
+  color:var(--muted);padding:4px;opacity:.8;
+}
+.settings-btn:hover{opacity:1;}
 .lobby-title{
-  font-family:'Georgia',serif;
-  font-size:clamp(1.2rem,5vw,1.5rem);
-  color:var(--gold2);letter-spacing:.1em;text-transform:uppercase;
+  font-size:clamp(1.1rem,5vw,1.35rem);font-weight:700;
+  color:var(--text);letter-spacing:-.01em;
 }
-.lobby-sub{font-size:clamp(.65rem,2vw,.72rem);color:var(--muted);margin-top:2px;}
+.lobby-sub{font-size:.72rem;color:var(--muted);margin-top:3px;}
 
 #lobby-msg{
   text-align:center;font-size:clamp(.72rem,2.2vw,.8rem);
@@ -68,15 +90,15 @@ html,body{
 
 .rc{
   background:var(--bg2);border:1px solid var(--border);
-  border-radius:var(--radius);padding:12px 14px;
+  border-radius:var(--radius);padding:13px 14px;
   cursor:pointer;display:flex;align-items:center;gap:12px;
-  transition:border-color .2s,background .2s;
+  transition:border-color .2s,background .2s,box-shadow .2s;
 }
-.rc:hover{border-color:var(--gold);background:#1c1c18;}
+.rc:hover{border-color:var(--gold-border);background:var(--glass);box-shadow:var(--shadow-sm);}
 .rc-icon{font-size:1.8rem;flex-shrink:0;width:36px;text-align:center;}
 .rc-info{flex:1;min-width:0;}
 .rc-name{
-  font-family:'Georgia',serif;font-size:clamp(.85rem,2.5vw,.95rem);color:var(--gold2);
+  font-size:clamp(.85rem,2.5vw,.95rem);color:var(--gold2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .rc-theme{font-size:.7rem;color:var(--muted);margin-top:2px;}
@@ -106,13 +128,11 @@ html,body{
 }
 .lobby-new{
   width:100%;padding:14px;
-  background:linear-gradient(135deg,#1e1a08,#2a2410);
-  border:2px solid var(--gold);border-radius:var(--radius);
-  color:var(--gold2);font-size:clamp(.9rem,2.5vw,1rem);
-  font-family:'Georgia',serif;letter-spacing:.05em;
-  cursor:pointer;transition:background .2s,transform .1s;
+  background:var(--gold);border:none;border-radius:var(--radius);
+  color:#fff;font-size:clamp(.88rem,2.5vw,.95rem);font-weight:600;
+  cursor:pointer;transition:opacity .15s,transform .1s;
 }
-.lobby-new:hover{background:linear-gradient(135deg,#2a2410,#3a3018);transform:translateY(-1px);}
+.lobby-new:hover{opacity:.9;transform:translateY(-1px);}
 
 /* ══════════════════════════════════════════════════
    CREATE MODAL
@@ -125,21 +145,22 @@ html,body{
 }
 #modal-bg.open{display:flex;}
 .modal-sheet{
-  background:var(--bg2);border-top:2px solid var(--gold);
-  border-radius:16px 16px 0 0;width:100%;
+  background:var(--bg2);border-top:1px solid var(--border);
+  border-radius:20px 20px 0 0;width:100%;
   max-height:90dvh;overflow-y:auto;padding:20px 16px 30px;
   padding-bottom:calc(30px + env(safe-area-inset-bottom));
+  box-shadow:0 -4px 30px rgba(0,0,0,.3);
 }
 .modal-title{
-  font-family:'Georgia',serif;font-size:1.1rem;
-  color:var(--gold2);margin-bottom:16px;text-align:center;
+  font-size:1.1rem;font-weight:700;
+  color:var(--text);margin-bottom:16px;text-align:center;
 }
 .mf{margin-bottom:12px;}
 .ml{font-size:.7rem;color:var(--muted);margin-bottom:4px;display:block;}
 .mi{
-  width:100%;background:var(--bg3);border:1px solid var(--border);
-  border-radius:8px;padding:10px 12px;color:var(--text);
-  font-size:clamp(.82rem,2.4vw,.9rem);font-family:'Segoe UI',sans-serif;
+  width:100%;background:var(--input-bg);border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px;color:var(--text);
+  font-size:clamp(.82rem,2.4vw,.9rem);
 }
 .mi:focus{outline:none;border-color:var(--gold);}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
@@ -148,7 +169,7 @@ html,body{
   border-radius:20px;padding:5px 12px;font-size:.75rem;
   color:var(--text);cursor:pointer;transition:border-color .15s,background .15s;
 }
-.chip:hover,.chip.on{border-color:var(--gold);background:#201c08;color:var(--gold2);}
+.chip:hover,.chip.on{border-color:var(--gold);background:var(--gold-glow);color:var(--gold2);}
 .hp-row{display:flex;gap:10px;}
 .hp-row .mf{flex:1;}
 .modal-cta{
@@ -187,8 +208,9 @@ html,body{
   pointer-events:none;width:min(320px,90vw);
 }
 .toast{
-  background:rgba(30,28,22,.95);border:1px solid var(--gold);
-  border-radius:8px;padding:8px 14px;font-size:.8rem;text-align:center;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:12px;padding:9px 16px;font-size:.82rem;text-align:center;
+  box-shadow:var(--shadow);
   animation:tIn .2s ease,tOut .3s ease 2.7s forwards;
 }
 .toast.crit{border-color:#f39c12;color:#f39c12;background:rgba(50,35,0,.95);}
@@ -200,14 +222,14 @@ html,body{
 
 /* header */
 #hdr{
-  background:linear-gradient(180deg,#1a1206,var(--bg));
-  border-bottom:1px solid #2a2210;
+  background:var(--hdr-bg);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   padding:10px 14px 8px;flex-shrink:0;
   display:flex;align-items:center;gap:10px;
 }
 .hdr-info{flex:1;min-width:0;}
 .hdr-name{
-  font-family:'Georgia',serif;font-size:clamp(.8rem,2.4vw,.9rem);color:var(--gold2);
+  font-size:clamp(.8rem,2.4vw,.9rem);color:var(--gold2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .hdr-theme{font-size:.65rem;color:var(--muted);}
@@ -226,7 +248,7 @@ html,body{
   flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg2);
 }
 .pcard{
-  background:var(--bg3);border:1px solid #2e2e2e;
+  background:var(--bg3);border:1px solid var(--border);
   border-radius:var(--radius);padding:8px 12px;min-width:110px;
 }
 .pcard-lbl{font-size:.66rem;color:var(--muted);margin-bottom:2px;}
@@ -254,12 +276,11 @@ html,body{
 .slbl.player{color:var(--blue);}
 .slbl.sys   {color:var(--muted);}
 .sbody{
-  font-family:'Georgia',serif;
   font-size:clamp(.85rem,2.5vw,.93rem);
-  line-height:1.6;color:var(--text);
-  background:var(--bg2);border-radius:8px;
-  padding:10px 13px;border-left:2px solid transparent;
-  white-space:pre-wrap;      /* renders \n\n as paragraph breaks */
+  line-height:1.65;color:var(--text);
+  background:var(--bg2);border-radius:10px;
+  padding:11px 14px;border-left:2px solid transparent;
+  white-space:pre-wrap;
   word-break:break-word;
 }
 .sbody.dm    {border-color:var(--gold);}
@@ -278,7 +299,8 @@ html,body{
 #chat-bar{
   border-top:1px solid var(--border);padding:8px 10px;
   padding-bottom:calc(8px + env(safe-area-inset-bottom));
-  background:var(--bg2);flex-shrink:0;
+  background:var(--hdr-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  flex-shrink:0;
 }
 #qbtns{
   display:flex;gap:6px;margin-bottom:8px;
@@ -296,9 +318,9 @@ html,body{
 .qbtn.choice-btn:hover{border-color:var(--gold);background:#2a2010;}
 .irow{display:flex;gap:8px;align-items:flex-end;}
 #msg-input{
-  flex:1;background:var(--bg3);border:1px solid var(--border);
+  flex:1;background:var(--input-bg);border:1px solid var(--border2);
   border-radius:22px;padding:10px 16px;color:var(--text);
-  font-size:clamp(.82rem,2.4vw,.88rem);font-family:'Segoe UI',sans-serif;
+  font-size:clamp(.82rem,2.4vw,.88rem);
   resize:none;max-height:100px;outline:none;line-height:1.4;
 }
 #msg-input:focus{border-color:var(--gold);}
@@ -525,6 +547,32 @@ html,body{
   #qte-roll-btn    { padding:16px 60px; font-size:1.1rem; }
   #qte-face-inner  { font-size:clamp(4rem,10vw,5.5rem); }
 }
+
+/* ── Settings Sheet ─────────────────────────────────────── */
+#settings-bg{
+  position:fixed;inset:0;z-index:900;
+  background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  display:none;align-items:flex-end;justify-content:center;
+  max-width:430px;left:50%;transform:translateX(-50%);
+}
+#settings-bg.open{display:flex;}
+.settings-sheet{
+  background:var(--bg2);border-top:1px solid var(--border);
+  border-radius:20px 20px 0 0;width:100%;
+  padding:16px 20px 30px;padding-bottom:calc(30px + env(safe-area-inset-bottom));
+  box-shadow:0 -4px 30px rgba(0,0,0,.3);
+}
+.settings-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;}
+.settings-title{font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);}
+.settings-row:last-child{border-bottom:none;}
+.settings-label{font-size:.95rem;color:var(--text);}
+.toggle-wrap{position:relative;width:50px;height:28px;flex-shrink:0;}
+.toggle-wrap input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-track{position:absolute;inset:0;background:var(--border2);border-radius:14px;transition:background .25s;cursor:pointer;}
+.toggle-wrap input:checked + .toggle-track{background:var(--green);}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35);transition:transform .25s;pointer-events:none;}
+.toggle-wrap input:checked ~ .toggle-thumb{transform:translateX(22px);}
 </style>
 </head>
 <body>
@@ -532,33 +580,52 @@ html,body{
 <!-- ══ LOBBY ════════════════════════════════════════ -->
 <div id="lobby">
   <div class="lobby-hdr">
-    <div class="lobby-title">⚔️ DND Adventure</div>
-    <div class="lobby-sub">Campaign Room Memory System</div>
+    <div>
+      <div class="lobby-title">⚔️ DND Adventure</div>
+      <div class="lobby-sub">Campaign Room Memory System</div>
+    </div>
+    <button class="settings-btn" onclick="openSettings()" title="ตั้งค่า">⚙️</button>
   </div>
   <!-- Server URL row — hidden when same-origin (LAN) -->
   <div id="server-url-row" style="
     display:flex; align-items:center; gap:8px;
     margin:0 16px 12px; padding:10px 14px;
-    background:rgba(201,168,76,0.07); border-radius:10px;
-    border:1px solid rgba(201,168,76,0.2);
+    background:var(--gold-glow); border-radius:var(--radius);
+    border:1px solid var(--gold-border);
   ">
     <span style="font-size:1.1rem">🌐</span>
     <input id="server-url-input" type="url"
       placeholder="Server URL (เว้นว่างถ้าเล่น LAN)"
       value=""
       style="flex:1; background:transparent; border:none; outline:none;
-             color:#f0d060; font-size:0.85rem; min-width:0;"
+             color:var(--gold2); font-size:0.85rem; min-width:0;"
       oninput="applyServerUrl(this.value)"
       onchange="applyServerUrl(this.value)"
       onpaste="setTimeout(()=>applyServerUrl(this.value),0)"
     >
-    <span id="server-url-status" style="font-size:0.8rem; white-space:nowrap; color:#aaa">LAN mode</span>
+    <span id="server-url-status" style="font-size:0.8rem; white-space:nowrap; color:var(--muted)">LAN mode</span>
   </div>
 
   <div id="lobby-msg">กำลังโหลดแคมเปญ...</div>
   <div id="lobby-rooms"></div>
   <div class="lobby-foot">
     <button class="lobby-new" onclick="openModal()">+ สร้างแคมเปญใหม่</button>
+  </div>
+</div>
+
+<!-- ══ SETTINGS SHEET ════════════════════════════════════ -->
+<div id="settings-bg" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-sheet">
+    <div class="settings-handle"></div>
+    <div class="settings-title">ตั้งค่า</div>
+    <div class="settings-row">
+      <span class="settings-label">โหมดสว่าง</span>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="theme-toggle" onchange="toggleTheme(this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
   </div>
 </div>
 
@@ -1444,7 +1511,35 @@ window.addEventListener('resize', rfx);
 /* ════════════════════════════════════════════════
    INIT
 ════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════
+   SETTINGS
+════════════════════════════════════════════════ */
+function openSettings(){
+  const bg = document.getElementById('settings-bg');
+  if(bg) bg.classList.add('open');
+  const isLight = document.documentElement.classList.contains('light');
+  const tog = document.getElementById('theme-toggle');
+  if(tog) tog.checked = isLight;
+}
+function closeSettings(){
+  const bg = document.getElementById('settings-bg');
+  if(bg) bg.classList.remove('open');
+}
+function toggleTheme(isLight){
+  if(isLight){
+    document.documentElement.classList.add('light');
+    localStorage.setItem('dnd_theme','light');
+  } else {
+    document.documentElement.classList.remove('light');
+    localStorage.setItem('dnd_theme','dark');
+  }
+}
+
 window.addEventListener('load', ()=>{
+  /* restore saved theme */
+  const savedTheme = localStorage.getItem('dnd_theme');
+  if(savedTheme === 'light') document.documentElement.classList.add('light');
+
   /* restore saved server URL into input */
   const saved = sessionStorage.getItem('dnd_server_url') || '';
   const inp = document.getElementById('server-url-input');
