@@ -140,14 +140,13 @@ html,body{
 #modal-bg{
   position:fixed;inset:0;z-index:700;
   background:rgba(0,0,0,.7);
-  display:none;align-items:flex-end;justify-content:center;
-  max-width:100%;left:0;transform:none;
+  display:none;
 }
-.modal-sheet{max-width:480px;margin:0 auto;width:100%;}
-#modal-bg.open{display:flex;}
+#modal-bg.open{display:block;}
 .modal-sheet{
+  position:absolute;bottom:0;left:0;right:0;
   background:var(--bg2);border-top:1px solid var(--border);
-  border-radius:20px 20px 0 0;width:100%;
+  border-radius:20px 20px 0 0;
   max-height:92dvh;overflow-y:auto;padding:16px 14px 24px;
   padding-bottom:calc(30px + env(safe-area-inset-bottom));
   box-shadow:0 -4px 30px rgba(0,0,0,.3);
@@ -481,7 +480,8 @@ html,body{
 @media (min-width: 768px) {
   #lobby { max-width:680px; }
   #game  { max-width:680px; }
-  #modal-bg  { max-width:680px; }
+  .modal-sheet  { max-width:680px; left:50%; right:auto; transform:translateX(-50%); border-radius:20px 20px 0 0; }
+  .settings-sheet { max-width:680px; left:50%; right:auto; transform:translateX(-50%); border-radius:20px 20px 0 0; }
   #fx-canvas,#flash { max-width:680px; }
 
   .lobby-title { font-size:1.6rem; }
@@ -517,7 +517,8 @@ html,body{
 @media (min-width: 1200px) {
   #lobby { max-width:min(900px,90vw); }
   #game  { max-width:min(900px,90vw); }
-  #modal-bg  { max-width:min(900px,90vw); }
+  .modal-sheet  { max-width:min(900px,90vw); }
+  .settings-sheet { max-width:min(900px,90vw); }
   #fx-canvas,#flash { max-width:min(900px,90vw); }
 
   .lobby-title { font-size:1.8rem; }
@@ -570,13 +571,13 @@ html,body{
 #settings-bg{
   position:fixed;inset:0;z-index:900;
   background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
-  display:none;align-items:flex-end;justify-content:center;
+  display:none;
 }
-.settings-sheet{max-width:480px;width:100%;margin:0 auto;}
-#settings-bg.open{display:flex;}
+#settings-bg.open{display:block;}
 .settings-sheet{
+  position:absolute;bottom:0;left:0;right:0;
   background:var(--bg2);border-top:1px solid var(--border);
-  border-radius:20px 20px 0 0;width:100%;
+  border-radius:20px 20px 0 0;
   padding:16px 20px 30px;padding-bottom:calc(30px + env(safe-area-inset-bottom));
   box-shadow:0 -4px 30px rgba(0,0,0,.3);
 }
