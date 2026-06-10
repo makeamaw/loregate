@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
-<title>⚔️ DND Adventure</title>
+<title>⚔️ LoreGate</title>
 <style>
 /* ── Variables ──────────────────────────────────────────── */
 :root{
@@ -68,7 +68,7 @@ html,body{
 .lobby-sub{font-size:.72rem;color:var(--muted);margin-top:3px;}
 
 #lobby-msg{
-  text-align:center;font-size:clamp(.72rem,2.2vw,.8rem);
+  text-align:center;font-size:clamp(.82rem,2.2vw,.88rem);
   padding:8px 12px;color:var(--muted);flex-shrink:0;min-height:28px;
 }
 #lobby-msg.err{color:#e74c3c;}
@@ -101,14 +101,14 @@ html,body{
   font-size:clamp(.85rem,2.5vw,.95rem);color:var(--gold2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.rc-theme{font-size:.7rem;color:var(--muted);margin-top:2px;}
-.rc-player{font-size:.73rem;color:#aaa;margin-top:4px;}
+.rc-theme{font-size:.78rem;color:var(--muted);margin-top:2px;}
+.rc-player{font-size:.8rem;color:#aaa;margin-top:4px;}
 .rc-scene{
-  font-size:.7rem;color:var(--muted);margin-top:3px;
+  font-size:.78rem;color:var(--muted);margin-top:3px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .rc-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
-.rc-time{font-size:.65rem;color:var(--muted);}
+.rc-time{font-size:.73rem;color:var(--muted);}
 .rc-play{
   background:var(--gold);color:#1a1200;border:none;
   border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:bold;cursor:pointer;
@@ -156,7 +156,7 @@ html,body{
   color:var(--text);margin-bottom:16px;text-align:center;
 }
 .mf{margin-bottom:12px;}
-.ml{font-size:.7rem;color:var(--muted);margin-bottom:4px;display:block;}
+.ml{font-size:.78rem;color:var(--muted);margin-bottom:4px;display:block;}
 .mi{
   width:100%;background:var(--input-bg);border:1px solid var(--border);
   border-radius:10px;padding:10px 12px;color:var(--text);
@@ -232,15 +232,17 @@ html,body{
   font-size:clamp(.8rem,2.4vw,.9rem);color:var(--gold2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.hdr-theme{font-size:.65rem;color:var(--muted);}
+.hdr-theme{font-size:.72rem;color:var(--muted);}
 .sdot{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0;transition:background .4s;}
 .sdot.ok{background:var(--green);}
 .sdot.err{background:var(--red);}
 .back-btn{
-  background:none;border:1px solid var(--border);border-radius:6px;
-  padding:4px 8px;color:var(--muted);font-size:.7rem;cursor:pointer;flex-shrink:0;
+  background:none;border:none;
+  padding:6px 10px 6px 4px;color:var(--blue);font-size:.9rem;
+  font-weight:500;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;gap:2px;
 }
-.back-btn:hover{border-color:var(--gold);color:var(--gold);}
+.back-btn:hover{opacity:.7;}
 
 /* player strip */
 #strip{
@@ -251,7 +253,7 @@ html,body{
   background:var(--bg3);border:1px solid var(--border);
   border-radius:var(--radius);padding:8px 12px;min-width:110px;
 }
-.pcard-lbl{font-size:.66rem;color:var(--muted);margin-bottom:2px;}
+.pcard-lbl{font-size:.74rem;color:var(--muted);margin-bottom:2px;}
 .pcard-val{font-size:clamp(.75rem,2.2vw,.82rem);font-weight:bold;color:var(--text);}
 .hpbar{background:#2a0a0a;border-radius:3px;height:5px;margin-top:5px;overflow:hidden;}
 .hpfill{height:100%;border-radius:3px;background:var(--green);transition:width .4s ease,background .4s;}
@@ -271,7 +273,7 @@ html,body{
 /* story panel */
 #story{padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
 .sentry{display:flex;flex-direction:column;gap:3px;}
-.slbl{font-size:.66rem;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;}
+.slbl{font-size:.72rem;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;}
 .slbl.dm    {color:var(--gold);}
 .slbl.player{color:var(--blue);}
 .slbl.sys   {color:var(--muted);}
@@ -310,7 +312,7 @@ html,body{
 .qbtn{
   background:var(--bg3);border:1px solid var(--border);
   border-radius:16px;padding:5px 12px;color:var(--text);
-  font-size:clamp(.7rem,2vw,.75rem);white-space:nowrap;cursor:pointer;flex-shrink:0;
+  font-size:clamp(.78rem,2vw,.82rem);white-space:nowrap;cursor:pointer;flex-shrink:0;
   transition:border-color .15s,background .15s;
 }
 .qbtn:hover{border-color:var(--gold);color:var(--gold2);}
@@ -581,29 +583,35 @@ html,body{
 <div id="lobby">
   <div class="lobby-hdr">
     <div>
-      <div class="lobby-title">⚔️ DND Adventure</div>
-      <div class="lobby-sub">Campaign Room Memory System</div>
+      <div class="lobby-title">⚔️ LoreGate</div>
+      <div class="lobby-sub">Your Story, Your World</div>
     </div>
     <button class="settings-btn" onclick="openSettings()" title="ตั้งค่า">⚙️</button>
   </div>
-  <!-- Server URL row — hidden when same-origin (LAN) -->
-  <div id="server-url-row" style="
-    display:flex; align-items:center; gap:8px;
-    margin:0 16px 12px; padding:10px 14px;
-    background:var(--gold-glow); border-radius:var(--radius);
-    border:1px solid var(--gold-border);
-  ">
-    <span style="font-size:1.1rem">🌐</span>
+  <!-- Compact server status pill -->
+  <div id="server-url-row" style="display:flex;align-items:center;justify-content:center;margin:0 16px 10px;">
+    <button id="server-url-pill" onclick="toggleUrlPanel()"
+      style="display:flex;align-items:center;gap:7px;padding:7px 16px;
+             background:var(--bg2);border:1px solid var(--border);
+             border-radius:20px;cursor:pointer;font-size:.82rem;color:var(--muted);">
+      <span id="server-url-status">⚫ LAN mode</span>
+      <span style="font-size:.65rem;opacity:.5">›</span>
+    </button>
+  </div>
+  <!-- Expandable URL editor (hidden by default) -->
+  <div id="server-url-panel" style="display:none;margin:0 16px 10px;padding:10px 14px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);">
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;">Server URL</div>
     <input id="server-url-input" type="url"
-      placeholder="Server URL (เว้นว่างถ้าเล่น LAN)"
+      placeholder="https://xxx.trycloudflare.com"
       value=""
-      style="flex:1; background:transparent; border:none; outline:none;
-             color:var(--gold2); font-size:0.85rem; min-width:0;"
+      style="width:100%;background:var(--input-bg);border:1px solid var(--border2);
+             border-radius:8px;padding:9px 12px;outline:none;
+             color:var(--text);font-size:.85rem;"
       oninput="applyServerUrl(this.value)"
       onchange="applyServerUrl(this.value)"
       onpaste="setTimeout(()=>applyServerUrl(this.value),0)"
     >
-    <span id="server-url-status" style="font-size:0.8rem; white-space:nowrap; color:var(--muted)">LAN mode</span>
   </div>
 
   <div id="lobby-msg">กำลังโหลดแคมเปญ...</div>
@@ -696,9 +704,9 @@ html,body{
 
 <div id="game">
   <div id="hdr">
-    <button class="back-btn" onclick="backToLobby()">◀ Lobby</button>
+    <button class="back-btn" onclick="backToLobby()">‹ Lobby</button>
     <div class="hdr-info">
-      <div class="hdr-name" id="hdr-name">DND Adventure</div>
+      <div class="hdr-name" id="hdr-name">LoreGate</div>
       <div class="hdr-theme" id="hdr-theme">—</div>
     </div>
     <div class="sdot" id="sdot" title="Server status"></div>
@@ -737,17 +745,25 @@ html,body{
 let SERVER_URL = sessionStorage.getItem('dnd_server_url') || '';
 
 function applyServerUrl(val) {
-  /* strip trailing slash */
   SERVER_URL = val.trim().replace(/\/$/, '');
   sessionStorage.setItem('dnd_server_url', SERVER_URL);
   const s = document.getElementById('server-url-status');
   if (!SERVER_URL) {
-    s.textContent = 'LAN mode'; s.style.color = '#aaa';
+    s.textContent = '⚫ LAN mode'; s.style.color = 'var(--muted)';
   } else {
-    s.textContent = '🟢 Online'; s.style.color = '#7cfc00';
+    s.textContent = '🟢 Online'; s.style.color = 'var(--green)';
+    /* auto-close URL panel once URL is entered */
+    const p = document.getElementById('server-url-panel');
+    if(p) setTimeout(()=>{ p.style.display='none'; }, 800);
   }
-  /* reload room list with new URL */
   loadRooms();
+}
+function toggleUrlPanel(){
+  const p = document.getElementById('server-url-panel');
+  if(!p) return;
+  const open = p.style.display !== 'none';
+  p.style.display = open ? 'none' : 'block';
+  if(!open) document.getElementById('server-url-input').focus();
 }
 
 /* ════════════════════════════════════════════════
@@ -1547,7 +1563,7 @@ window.addEventListener('load', ()=>{
     inp.value = saved;
     if (saved) {
       const s = document.getElementById('server-url-status');
-      if (s) { s.textContent = '🟢 Online'; s.style.color = '#7cfc00'; }
+      if (s) { s.textContent = '🟢 Online'; s.style.color = 'var(--green)'; }
     }
   }
 
@@ -1570,7 +1586,7 @@ window.addEventListener('load', ()=>{
   if (gistReady && !saved) {
     /* แสดง "กำลังค้นหา..." ขณะ fetch */
     const sEl = document.getElementById('server-url-status');
-    if (sEl) { sEl.textContent = '🔍 กำลังค้นหา...'; sEl.style.color = '#ffd700'; }
+    if (sEl) { sEl.textContent = '🔍 กำลังค้นหา...'; sEl.style.color = 'var(--gold2)'; }
   }
 
   if (gistReady) {
