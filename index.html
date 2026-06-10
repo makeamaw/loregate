@@ -144,12 +144,13 @@ html,body{
 }
 #modal-bg.open{display:block;}
 .modal-sheet{
-  position:absolute;bottom:0;left:0;right:0;
+  position:fixed;bottom:0;left:0;right:0;width:100%;
   background:var(--bg2);border-top:1px solid var(--border);
   border-radius:20px 20px 0 0;
   max-height:92dvh;overflow-y:auto;padding:16px 14px 24px;
   padding-bottom:calc(30px + env(safe-area-inset-bottom));
   box-shadow:0 -4px 30px rgba(0,0,0,.3);
+  box-sizing:border-box;
 }
 .modal-title{
   font-size:1.1rem;font-weight:700;
@@ -480,8 +481,8 @@ html,body{
 @media (min-width: 768px) {
   #lobby { max-width:680px; }
   #game  { max-width:680px; }
-  .modal-sheet  { max-width:680px; left:50%; right:auto; transform:translateX(-50%); border-radius:20px 20px 0 0; }
-  .settings-sheet { max-width:680px; left:50%; right:auto; transform:translateX(-50%); border-radius:20px 20px 0 0; }
+  .modal-sheet   { max-width:680px; left:50%; right:auto; transform:translateX(-50%); width:100%; }
+  .settings-sheet{ max-width:680px; left:50%; right:auto; transform:translateX(-50%); width:100%; }
   #fx-canvas,#flash { max-width:680px; }
 
   .lobby-title { font-size:1.6rem; }
@@ -575,11 +576,12 @@ html,body{
 }
 #settings-bg.open{display:block;}
 .settings-sheet{
-  position:absolute;bottom:0;left:0;right:0;
+  position:fixed;bottom:0;left:0;right:0;width:100%;
   background:var(--bg2);border-top:1px solid var(--border);
   border-radius:20px 20px 0 0;
   padding:16px 20px 30px;padding-bottom:calc(30px + env(safe-area-inset-bottom));
   box-shadow:0 -4px 30px rgba(0,0,0,.3);
+  box-sizing:border-box;
 }
 .settings-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;}
 .modal-handle-bar{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 14px;}
