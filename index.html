@@ -1351,6 +1351,13 @@ function esc(s){
 
 async function loadRooms(){
   const m = document.getElementById('lobby-msg');
+  /* ยังไม่มี server URL → รอ Gist auto-detect */
+  if(!SERVER_URL){
+    m.textContent='🔍 กำลังค้นหา server...';
+    m.className='';
+    renderRooms([]);
+    return;
+  }
   try{
     const r = await fetch(SERVER_URL+'/rooms');
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -1358,7 +1365,7 @@ async function loadRooms(){
     m.textContent=''; m.className='';
     renderRooms(rooms);
   }catch(e){
-    m.textContent='⚠️ Server offline — รัน start_server.bat ก่อน';
+    m.textContent='⚠️ Server offline — เปิด start_auto.py ก่อนเล่น';
     m.className='err';
     renderRooms([]);
   }
