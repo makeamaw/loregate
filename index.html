@@ -780,12 +780,19 @@ function applyServerUrl(val) {
   if (!SERVER_URL) {
     s.textContent = '⚫ LAN mode'; s.style.color = 'var(--muted)';
   } else {
-    s.textContent = '🟢 Online'; s.style.color = 'var(--green)';
-    /* auto-close URL panel once URL is entered */
-    const p = document.getElementById('server-url-panel');
-    if(p) setTimeout(()=>{ p.style.display='none'; }, 800);
+    s.textContent = '⏳ กำลังเชื่อมต่อ...'; s.style.color = 'var(--muted)';
   }
   loadRooms();
+}
+function _setPillOnline(){ 
+  const s = document.getElementById('server-url-status');
+  if(s){ s.textContent = '🟢 Online'; s.style.color = 'var(--green)'; }
+  const p = document.getElementById('server-url-panel');
+  if(p) p.style.display = 'none';
+}
+function _setPillOffline(){ 
+  const s = document.getElementById('server-url-status');
+  if(s){ s.textContent = '⚠️ ไม่พบ server'; s.style.color = 'var(--red)'; }
 }
 function toggleUrlPanel(){
   const p = document.getElementById('server-url-panel');
@@ -1349,9 +1356,9 @@ function esc(s){
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+let _loadRetry = 0;
 async function loadRooms(){
   const m = document.getElementById('lobby-msg');
-  /* ยังไม่มี server URL → รอ Gist auto-detect */
   if(!SERVER_URL){
     m.textContent='🔍 กำลังค้นหา server...';
     m.className='';
@@ -1359,15 +1366,29 @@ async function loadRooms(){
     return;
   }
   try{
-    const r = await fetch(SERVER_URL+'/rooms');
+    const r = await fetch(SERVER_URL+'/rooms', {signal: AbortSignal.timeout(8000)});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const rooms = await r.json();
     m.textContent=''; m.className='';
+    _loadRetry = 0;
+    _setPillOnline();
     renderRooms(rooms);
   }catch(e){
-    m.textContent='⚠️ Server offline — เปิด start_auto.py ก่อนเล่น';
-    m.className='err';
-    renderRooms([]);
+    _loadRetry++;
+    if(_loadRetry <= 4){
+      /* server อาจยังไม่พร้อม — retry อัตโนมัติ */
+      const wait = _loadRetry * 3;
+      m.textContent=\`⏳ กำลังเชื่อมต่อ... (ลอง \${_loadRetry}/4)\`;
+      m.className='';
+      renderRooms([]);
+      setTimeout(loadRooms, wait * 1000);
+    } else {
+      m.textContent='⚠️ Server offline — เปิด start_auto.pyw ก่อนเล่น';
+      m.className='err';
+      _setPillOffline();
+      _loadRetry = 0;
+      renderRooms([]);
+    }
   }
 }
 
@@ -1637,7 +1658,7 @@ window.addEventListener('load', ()=>{
     inp.value = saved;
     if (saved) {
       const s = document.getElementById('server-url-status');
-      if (s) { s.textContent = '🟢 Online'; s.style.color = 'var(--green)'; }
+      if (s) { s.textContent = '⏳ กำลังเชื่อมต่อ...'; s.style.color = 'var(--muted)'; }
     }
   }
 
