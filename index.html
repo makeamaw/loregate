@@ -312,6 +312,18 @@ html,body{
 .hpill.lv-pill{border-color:var(--gold-border);color:var(--gold2);background:var(--gold-glow);}
 .hpill.bag-pill{background:none;border-color:var(--border2);font-size:.75rem;}
 .hpill.bag-pill:hover,.hpill.bag-pill.open{border-color:var(--gold);color:var(--gold2);}
+#tts-toggle{
+  background:none;border:1px solid var(--border);border-radius:12px;
+  padding:2px 8px;font-size:.75rem;cursor:pointer;color:var(--muted);
+  transition:border-color .15s,color .15s;
+}
+#tts-toggle:hover{border-color:var(--gold-border);color:var(--gold2);}
+.tts-play-btn{
+  background:none;border:none;cursor:pointer;font-size:.7rem;
+  color:var(--muted);padding:0 4px;opacity:0.6;transition:opacity .15s;
+  vertical-align:middle;line-height:1;
+}
+.tts-play-btn:hover{opacity:1;color:var(--gold2);}
 
 /* XP bar in player card */
 .xpbar{background:#0a0a2e;border-radius:3px;height:4px;margin-top:4px;overflow:hidden;}
@@ -832,6 +844,7 @@ html,body{
     <div class="hdr-pills">
       <span class="hpill lv-pill" id="hpill-lv">Lv 1</span>
       <button class="hpill bag-pill" id="hpill-bag" onclick="toggleBag()">🎒 <span id="bag-ct">0</span></button>
+      <button id="tts-toggle" onclick="toggleTTS()" title="เปิด/ปิดเสียงพากย์">🔇</button>
     </div>
     <div class="sdot" id="sdot" title="Server status"></div>
   </div>
@@ -1384,6 +1397,8 @@ function syncPlayerCard(){
     bi.innerHTML = '<span class="bd-empty">— ยังไม่มีไอเทม —</span>';
   }
   updateStripMini();
+  // TTS voice: auto-select based on player gender
+  if(p.gender) setTTSVoice(p.gender);
 }
 
 function toggleBag(){
@@ -1548,7 +1563,10 @@ function processDM(raw){
     .replace(/\[DICE RESULT:[^\]]*\]/gi, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  if(display) addMsg('🎲 DM', 'dm', display, 'dm');
+  if(display){
+    addMsg('🎲 DM', 'dm', display, 'dm');
+    autoPlayTTS(display);
+  }
 }
 
 /* ════════════════════════════════════════════════
@@ -1856,6 +1874,15 @@ function addMsg(lbl, lblCls, body, bodyCls){
   const e = document.createElement('div'); e.className='sentry';
   const l = document.createElement('div'); l.className='slbl '+lblCls; l.textContent=lbl;
   const b = document.createElement('div'); b.className='sbody '+bodyCls; b.textContent=body;
+  if(bodyCls === 'dm'){
+    const pb = document.createElement('button');
+    pb.className = 'tts-play-btn';
+    pb.title = 'เล่นเสียง';
+    pb.textContent = '▶';
+    pb.dataset.text = body;
+    pb.onclick = function(){ playTTS(this); };
+    b.appendChild(pb);
+  }
   e.appendChild(l); e.appendChild(b);
   story.appendChild(e);
   return e;
@@ -1897,6 +1924,40 @@ setInterval(checkHealth, 12000);
 /* ════════════════════════════════════════════════
    FX CANVAS
 ════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════
+   TTS — Thai Text-to-Speech via edge-tts
+════════════════════════════════════════════════ */
+let ttsEnabled = false;
+let ttsAudio   = null;
+let ttsVoice   = 'th-TH-PremwadeeNeural';
+
+function toggleTTS(){
+  ttsEnabled = !ttsEnabled;
+  const btn = document.getElementById('tts-toggle');
+  if(btn) btn.textContent = ttsEnabled ? '🔊' : '🔇';
+  if(!ttsEnabled && ttsAudio){ ttsAudio.pause(); ttsAudio = null; }
+}
+
+function setTTSVoice(gender){
+  ttsVoice = (gender === 'male') ? 'th-TH-NiwatNeural' : 'th-TH-PremwadeeNeural';
+}
+
+function playTTS(btn){
+  const text = btn.dataset.text;
+  if(!text) return;
+  if(ttsAudio){ ttsAudio.pause(); ttsAudio = null; }
+  const serverUrl = SERVER_URL || '';
+  if(!serverUrl) return;
+  const url = `${serverUrl}/tts?voice=${ttsVoice}&text=${encodeURIComponent(text)}`;
+  ttsAudio = new Audio(url);
+  ttsAudio.play().catch(e => console.warn('TTS play failed:', e));
+}
+
+function autoPlayTTS(text){
+  if(!ttsEnabled) return;
+  playTTS({ dataset: { text } });
+}
+
 const fc = document.getElementById('fx-canvas');
 const fx = fc.getContext('2d');
 let parts=[], fxRun=false;
