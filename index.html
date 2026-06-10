@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>⚔️ DND Adventure</title>
+<style>
+/* ── Variables ──────────────────────────────────────────── */
+:root{
+  --bg:#080507; --bg2:#0e0a0c; --bg3:#140f10;
+  --gold:#c9a84c; --gold2:#e8c96d;
+  --red:#cc3333; --green:#4caf50; --blue:#4a90d9;
+  --text:#e8dcc8; --muted:#7a6a55; --border:#2a2018;
+  --radius:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{
+  height:100%; margin:0; padding:0;
+  background:var(--bg);color:var(--text);
+  font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;
+}
+
+/* ══════════════════════════════════════════════════
+   LOBBY
+══════════════════════════════════════════════════ */
+#lobby{
+  position:fixed;top:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:430px;height:100dvh;
+  z-index:600;
+  background:var(--bg);display:flex;flex-direction:column;
+  transition:opacity .35s ease;
+  padding-top:env(safe-area-inset-top);
+}
+#lobby.fade-out{opacity:0;pointer-events:none;}
+
+.lobby-hdr{
+  background:linear-gradient(180deg,#1a1206,var(--bg));
+  border-bottom:1px solid #2a2210;
+  padding:20px 16px 14px;text-align:center;flex-shrink:0;
+}
+.lobby-title{
+  font-family:'Georgia',serif;
+  font-size:clamp(1.2rem,5vw,1.5rem);
+  color:var(--gold2);letter-spacing:.1em;text-transform:uppercase;
+}
+.lobby-sub{font-size:clamp(.65rem,2vw,.72rem);color:var(--muted);margin-top:2px;}
+
+#lobby-msg{
+  text-align:center;font-size:clamp(.72rem,2.2vw,.8rem);
+  padding:8px 12px;color:var(--muted);flex-shrink:0;min-height:28px;
+}
+#lobby-msg.err{color:#e74c3c;}
+
+#lobby-rooms{
+  flex:1;overflow-y:auto;padding:10px 12px;
+  display:flex;flex-direction:column;gap:10px;
+}
+#lobby-rooms::-webkit-scrollbar{width:3px;}
+#lobby-rooms::-webkit-scrollbar-thumb{background:#333;border-radius:2px;}
+
+.lobby-empty{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;
+  color:var(--muted);padding:40px;
+}
+.lobby-empty .ei{font-size:3rem;}
+.lobby-empty p{font-size:.82rem;text-align:center;line-height:1.5;}
+
+.rc{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px 14px;
+  cursor:pointer;display:flex;align-items:center;gap:12px;
+  transition:border-color .2s,background .2s;
+}
+.rc:hover{border-color:var(--gold);background:#1c1c18;}
+.rc-icon{font-size:1.8rem;flex-shrink:0;width:36px;text-align:center;}
+.rc-info{flex:1;min-width:0;}
+.rc-name{
+  font-family:'Georgia',serif;font-size:clamp(.85rem,2.5vw,.95rem);color:var(--gold2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.rc-theme{font-size:.7rem;color:var(--muted);margin-top:2px;}
+.rc-player{font-size:.73rem;color:#aaa;margin-top:4px;}
+.rc-scene{
+  font-size:.7rem;color:var(--muted);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.rc-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
+.rc-time{font-size:.65rem;color:var(--muted);}
+.rc-play{
+  background:var(--gold);color:#1a1200;border:none;
+  border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:bold;cursor:pointer;
+}
+.rc-play:hover{background:var(--gold2);}
+.rc-del{
+  background:none;border:1px solid #444;border-radius:50%;
+  width:22px;height:22px;color:#666;font-size:.6rem;cursor:pointer;
+  line-height:20px;text-align:center;transition:border-color .2s,color .2s;
+}
+.rc-del:hover{border-color:var(--red);color:var(--red);}
+
+.lobby-foot{
+  padding:12px;
+  padding-bottom:calc(12px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--border);flex-shrink:0;
+}
+.lobby-new{
+  width:100%;padding:14px;
+  background:linear-gradient(135deg,#1e1a08,#2a2410);
+  border:2px solid var(--gold);border-radius:var(--radius);
+  color:var(--gold2);font-size:clamp(.9rem,2.5vw,1rem);
+  font-family:'Georgia',serif;letter-spacing:.05em;
+  cursor:pointer;transition:background .2s,transform .1s;
+}
+.lobby-new:hover{background:linear-gradient(135deg,#2a2410,#3a3018);transform:translateY(-1px);}
+
+/* ══════════════════════════════════════════════════
+   CREATE MODAL
+══════════════════════════════════════════════════ */
+#modal-bg{
+  position:fixed;inset:0;z-index:700;
+  background:rgba(0,0,0,.7);
+  display:none;align-items:flex-end;justify-content:center;
+  max-width:430px;left:50%;transform:translateX(-50%);
+}
+#modal-bg.open{display:flex;}
+.modal-sheet{
+  background:var(--bg2);border-top:2px solid var(--gold);
+  border-radius:16px 16px 0 0;width:100%;
+  max-height:90dvh;overflow-y:auto;padding:20px 16px 30px;
+  padding-bottom:calc(30px + env(safe-area-inset-bottom));
+}
+.modal-title{
+  font-family:'Georgia',serif;font-size:1.1rem;
+  color:var(--gold2);margin-bottom:16px;text-align:center;
+}
+.mf{margin-bottom:12px;}
+.ml{font-size:.7rem;color:var(--muted);margin-bottom:4px;display:block;}
+.mi{
+  width:100%;background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;color:var(--text);
+  font-size:clamp(.82rem,2.4vw,.9rem);font-family:'Segoe UI',sans-serif;
+}
+.mi:focus{outline:none;border-color:var(--gold);}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.chip{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:20px;padding:5px 12px;font-size:.75rem;
+  color:var(--text);cursor:pointer;transition:border-color .15s,background .15s;
+}
+.chip:hover,.chip.on{border-color:var(--gold);background:#201c08;color:var(--gold2);}
+.hp-row{display:flex;gap:10px;}
+.hp-row .mf{flex:1;}
+.modal-cta{
+  width:100%;margin-top:6px;padding:13px;background:var(--gold);
+  border:none;border-radius:var(--radius);color:#1a1200;
+  font-size:.95rem;font-weight:bold;font-family:'Georgia',serif;cursor:pointer;
+}
+.modal-cta:hover{background:var(--gold2);}
+.modal-cancel{
+  width:100%;margin-top:8px;padding:10px;background:none;
+  border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--muted);font-size:.82rem;cursor:pointer;
+}
+
+/* ══════════════════════════════════════════════════
+   GAME SCREEN
+══════════════════════════════════════════════════ */
+#game{
+  position:fixed;top:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:430px;height:100dvh;
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg);
+  padding-top:env(safe-area-inset-top);
+}
+#fx-canvas{
+  position:fixed;inset:0;pointer-events:none;z-index:10;
+  max-width:430px;left:50%;transform:translateX(-50%);
+}
+#flash{
+  position:fixed;inset:0;pointer-events:none;z-index:9;opacity:0;
+  max-width:430px;left:50%;transform:translateX(-50%);
+}
+#toast-box{
+  position:fixed;top:60px;left:50%;transform:translateX(-50%);
+  z-index:500;display:flex;flex-direction:column;gap:6px;
+  pointer-events:none;width:min(320px,90vw);
+}
+.toast{
+  background:rgba(30,28,22,.95);border:1px solid var(--gold);
+  border-radius:8px;padding:8px 14px;font-size:.8rem;text-align:center;
+  animation:tIn .2s ease,tOut .3s ease 2.7s forwards;
+}
+.toast.crit{border-color:#f39c12;color:#f39c12;background:rgba(50,35,0,.95);}
+.toast.fail{border-color:var(--red);color:#e74c3c;background:rgba(50,0,0,.95);}
+.toast.heal{border-color:var(--green);color:#2ecc71;}
+.toast.dmg {border-color:var(--red);color:#e74c3c;}
+@keyframes tIn {from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes tOut{to{opacity:0;transform:translateY(-8px)}}
+
+/* header */
+#hdr{
+  background:linear-gradient(180deg,#1a1206,var(--bg));
+  border-bottom:1px solid #2a2210;
+  padding:10px 14px 8px;flex-shrink:0;
+  display:flex;align-items:center;gap:10px;
+}
+.hdr-info{flex:1;min-width:0;}
+.hdr-name{
+  font-family:'Georgia',serif;font-size:clamp(.8rem,2.4vw,.9rem);color:var(--gold2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.hdr-theme{font-size:.65rem;color:var(--muted);}
+.sdot{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0;transition:background .4s;}
+.sdot.ok{background:var(--green);}
+.sdot.err{background:var(--red);}
+.back-btn{
+  background:none;border:1px solid var(--border);border-radius:6px;
+  padding:4px 8px;color:var(--muted);font-size:.7rem;cursor:pointer;flex-shrink:0;
+}
+.back-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+/* player strip */
+#strip{
+  padding:8px 10px;display:flex;gap:8px;flex-wrap:wrap;
+  flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg2);
+}
+.pcard{
+  background:var(--bg3);border:1px solid #2e2e2e;
+  border-radius:var(--radius);padding:8px 12px;min-width:110px;
+}
+.pcard-lbl{font-size:.66rem;color:var(--muted);margin-bottom:2px;}
+.pcard-val{font-size:clamp(.75rem,2.2vw,.82rem);font-weight:bold;color:var(--text);}
+.hpbar{background:#2a0a0a;border-radius:3px;height:5px;margin-top:5px;overflow:hidden;}
+.hpfill{height:100%;border-radius:3px;background:var(--green);transition:width .4s ease,background .4s;}
+.ecard{
+  background:var(--bg3);border:1px solid #3a1010;
+  border-radius:var(--radius);padding:8px 12px;min-width:100px;
+  position:relative;transition:border-color .3s;
+}
+.ecard.dead{opacity:.45;border-color:#222;}
+.edead{position:absolute;top:4px;right:6px;font-size:.65rem;color:var(--red);}
+
+/* scroll body */
+#scroll-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;}
+#scroll-body::-webkit-scrollbar{width:4px;}
+#scroll-body::-webkit-scrollbar-thumb{background:#333;border-radius:2px;}
+
+/* story panel */
+#story{padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+.sentry{display:flex;flex-direction:column;gap:3px;}
+.slbl{font-size:.66rem;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;}
+.slbl.dm    {color:var(--gold);}
+.slbl.player{color:var(--blue);}
+.slbl.sys   {color:var(--muted);}
+.sbody{
+  font-family:'Georgia',serif;
+  font-size:clamp(.85rem,2.5vw,.93rem);
+  line-height:1.6;color:var(--text);
+  background:var(--bg2);border-radius:8px;
+  padding:10px 13px;border-left:2px solid transparent;
+  white-space:pre-wrap;      /* renders \n\n as paragraph breaks */
+  word-break:break-word;
+}
+.sbody.dm    {border-color:var(--gold);}
+.sbody.player{border-color:var(--blue);background:var(--bg3);}
+.sbody.sys   {border-color:#333;color:var(--muted);font-style:italic;}
+.tdots{display:flex;align-items:center;gap:4px;padding:4px 0;}
+.tdots span{
+  width:6px;height:6px;background:var(--gold);
+  border-radius:50%;animation:td .9s infinite;opacity:.5;
+}
+.tdots span:nth-child(2){animation-delay:.2s;}
+.tdots span:nth-child(3){animation-delay:.4s;}
+@keyframes td{0%,80%,100%{opacity:.2;transform:none}40%{opacity:1;transform:translateY(-4px)}}
+
+/* chat bar */
+#chat-bar{
+  border-top:1px solid var(--border);padding:8px 10px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom));
+  background:var(--bg2);flex-shrink:0;
+}
+#qbtns{
+  display:flex;gap:6px;margin-bottom:8px;
+  overflow-x:auto;scrollbar-width:none;
+}
+#qbtns::-webkit-scrollbar{display:none;}
+.qbtn{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:16px;padding:5px 12px;color:var(--text);
+  font-size:clamp(.7rem,2vw,.75rem);white-space:nowrap;cursor:pointer;flex-shrink:0;
+  transition:border-color .15s,background .15s;
+}
+.qbtn:hover{border-color:var(--gold);color:var(--gold2);}
+.qbtn.choice-btn{border-color:#3a2a10;background:#1a1408;}
+.qbtn.choice-btn:hover{border-color:var(--gold);background:#2a2010;}
+.irow{display:flex;gap:8px;align-items:flex-end;}
+#msg-input{
+  flex:1;background:var(--bg3);border:1px solid var(--border);
+  border-radius:22px;padding:10px 16px;color:var(--text);
+  font-size:clamp(.82rem,2.4vw,.88rem);font-family:'Segoe UI',sans-serif;
+  resize:none;max-height:100px;outline:none;line-height:1.4;
+}
+#msg-input:focus{border-color:var(--gold);}
+#msg-input::placeholder{color:#555;}
+#send-btn{
+  width:42px;height:42px;background:var(--gold);border:none;
+  border-radius:50%;color:#1a1200;font-size:1.1rem;cursor:pointer;
+  flex-shrink:0;transition:background .2s,transform .1s;
+}
+#send-btn:hover{background:var(--gold2);}
+#send-btn:active{transform:scale(.92);}
+#send-btn:disabled{background:#444;cursor:not-allowed;}
+
+/* ══════════════════════════════════════════════════
+   QTE DICE OVERLAY
+══════════════════════════════════════════════════ */
+#qte-overlay{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  z-index:800;
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  /* no animation on container */
+}
+#qte-overlay.open{display:flex;}
+
+#qte-bg{
+  position:absolute;inset:0;
+  background:rgba(4,2,3,.92);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+#qte-panel{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;align-items:center;
+  gap:12px;width:100%;
+  padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+  animation:qteIn .25s ease-out;
+}
+@keyframes qteIn{from{transform:scale(.95);opacity:0}to{transform:none;opacity:1}}
+
+#qte-dice-label{
+  font-family:'Georgia',serif;
+  font-size:clamp(2rem,8vw,2.8rem);
+  color:var(--gold);
+  text-shadow:0 0 24px rgba(201,168,76,.6);
+  letter-spacing:.18em;
+}
+#qte-reason-text{
+  font-family:'Georgia',serif;
+  font-size:clamp(.88rem,2.6vw,1rem);
+  color:var(--text);text-align:center;
+  max-width:min(300px,85vw);line-height:1.45;
+  padding:0 12px;
+}
+
+/* canvas wrapper */
+#qte-canvas-wrap{
+  position:relative;
+  width:min(280px,75vw);height:min(280px,75vw);
+  cursor:pointer;
+  /* subtle border glow */
+  border-radius:12px;
+  box-shadow:0 0 30px rgba(201,168,76,.15), inset 0 0 0 1px rgba(201,168,76,.1);
+}
+#dice-canvas{
+  width:100%;height:100%;display:block;border-radius:12px;
+}
+/* result overlay ON the canvas */
+#qte-face-num{
+  position:absolute;inset:0;
+  display:none;
+  pointer-events:none;
+  z-index:2;
+}
+#qte-face-num.show{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+#qte-face-inner{
+  font-family:'Georgia',serif;
+  font-size:clamp(3.5rem,14vw,5rem);
+  font-weight:bold;line-height:1;
+  color:var(--gold2);
+  text-shadow:0 0 30px var(--gold), 0 2px 8px rgba(0,0,0,.8);
+  animation:numPop .35s cubic-bezier(.17,.67,.44,1.29);
+  background:rgba(4,2,3,.6);
+  border-radius:50%;
+  width:1.5em;height:1.5em;
+  display:flex;align-items:center;justify-content:center;
+}
+#qte-face-inner.crit{color:#f39c12;text-shadow:0 0 30px #f39c12;}
+#qte-face-inner.fail{color:var(--red);text-shadow:0 0 30px var(--red);}
+@keyframes numPop{
+  from{transform:scale(.2) rotate(-20deg);opacity:0}
+  to  {transform:scale(1)  rotate(0deg);  opacity:1}
+}
+
+#qte-verdict-row{
+  display:none;
+  flex-direction:column;align-items:center;gap:4px;
+  animation:qteIn .2s ease;
+}
+#qte-verdict-row.show{display:flex;}
+#qte-verdict-text{
+  font-family:'Georgia',serif;
+  font-size:clamp(1rem,3.5vw,1.25rem);
+  letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);
+}
+#qte-verdict-text.crit{color:#f39c12;}
+#qte-verdict-text.fail{color:var(--red);}
+#qte-verdict-text.ok  {color:var(--green);}
+
+#qte-tap-hint{
+  font-size:clamp(.7rem,2vw,.78rem);color:var(--muted);
+  animation:hintPulse 1.6s ease-in-out infinite;
+}
+@keyframes hintPulse{0%,100%{opacity:.45}50%{opacity:.9}}
+
+#qte-roll-btn{
+  padding:14px min(44px,10vw);
+  background:var(--gold);border:none;border-radius:var(--radius);
+  color:#1a1200;font-size:clamp(.95rem,2.8vw,1.05rem);font-weight:bold;
+  font-family:'Georgia',serif;letter-spacing:.05em;cursor:pointer;
+  box-shadow:0 0 20px rgba(201,168,76,.35);
+  transition:transform .1s,background .2s;
+}
+#qte-roll-btn:hover{background:var(--gold2);}
+#qte-roll-btn:active{transform:scale(.95);}
+
+#qte-sending{
+  font-size:.75rem;color:var(--muted);display:none;
+  animation:hintPulse 1s ease-in-out infinite;
+}
+
+/* ══════════════════════════════════════════════════
+   RESPONSIVE — TABLET (768px – 1199px)
+══════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  #lobby { max-width:680px; }
+  #game  { max-width:680px; }
+  #modal-bg  { max-width:680px; }
+  #fx-canvas,#flash { max-width:680px; }
+
+  .lobby-title { font-size:1.6rem; }
+  .lobby-sub   { font-size:.8rem; }
+
+  .sbody {
+    font-size:.98rem;
+    line-height:1.7;
+    padding:12px 16px;
+  }
+  #hdr { padding:12px 18px 10px; }
+  .hdr-name { font-size:1rem; }
+
+  #strip { padding:10px 14px; gap:10px; flex-wrap:wrap; }
+  .pcard,.ecard { min-width:140px; padding:10px 14px; }
+  .pcard-val    { font-size:.88rem; }
+
+  #chat-bar {
+    padding:10px 16px;
+    padding-bottom:calc(10px + env(safe-area-inset-bottom));
+  }
+  .qbtn      { font-size:.8rem; padding:6px 14px; }
+  #msg-input { font-size:.94rem; padding:11px 18px; }
+  #send-btn  { width:46px; height:46px; font-size:1.2rem; }
+
+  /* QTE — slightly larger canvas */
+  #qte-canvas-wrap { width:min(340px,75vw); height:min(340px,75vw); }
+}
+
+/* ══════════════════════════════════════════════════
+   RESPONSIVE — DESKTOP (1200px+)
+══════════════════════════════════════════════════ */
+@media (min-width: 1200px) {
+  #lobby { max-width:min(900px,90vw); }
+  #game  { max-width:min(900px,90vw); }
+  #modal-bg  { max-width:min(900px,90vw); }
+  #fx-canvas,#flash { max-width:min(900px,90vw); }
+
+  .lobby-title { font-size:1.8rem; }
+  .lobby-sub   { font-size:.85rem; }
+
+  .sbody {
+    font-size:1.05rem;
+    line-height:1.8;
+    padding:14px 18px;
+  }
+  #hdr { padding:14px 24px 12px; }
+  .hdr-name { font-size:1.05rem; }
+  .hdr-theme { font-size:.75rem; }
+
+  #strip { padding:12px 18px; gap:12px; }
+  .pcard,.ecard { min-width:160px; padding:12px 16px; }
+  .pcard-val    { font-size:.92rem; }
+  .pcard-lbl    { font-size:.7rem; }
+
+  #chat-bar {
+    padding:12px 24px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom));
+  }
+  #qbtns {
+    flex-wrap:wrap;
+    overflow-x:visible;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  #qbtns::-webkit-scrollbar { display:none; }
+  .qbtn      { font-size:.82rem; padding:6px 16px; }
+  #msg-input { font-size:1rem; padding:12px 20px; }
+  #send-btn  { width:50px; height:50px; font-size:1.25rem; }
+
+  /* QTE — larger canvas + wider panel */
+  #qte-canvas-wrap { width:400px; height:400px; }
+  #qte-panel {
+    max-width:600px;
+    margin:0 auto;
+    gap:16px;
+    padding:28px 40px calc(28px + env(safe-area-inset-bottom));
+  }
+  #qte-dice-label  { font-size:3.2rem; }
+  #qte-reason-text { font-size:1.1rem; max-width:500px; }
+  #qte-roll-btn    { padding:16px 60px; font-size:1.1rem; }
+  #qte-face-inner  { font-size:clamp(4rem,10vw,5.5rem); }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOBBY ════════════════════════════════════════ -->
+<div id="lobby">
+  <div class="lobby-hdr">
+    <div class="lobby-title">⚔️ DND Adventure</div>
+    <div class="lobby-sub">Campaign Room Memory System</div>
+  </div>
+  <!-- Server URL row — hidden when same-origin (LAN) -->
+  <div id="server-url-row" style="
+    display:flex; align-items:center; gap:8px;
+    margin:0 16px 12px; padding:10px 14px;
+    background:rgba(201,168,76,0.07); border-radius:10px;
+    border:1px solid rgba(201,168,76,0.2);
+  ">
+    <span style="font-size:1.1rem">🌐</span>
+    <input id="server-url-input" type="url"
+      placeholder="Server URL (เว้นว่างถ้าเล่น LAN)"
+      value=""
+      style="flex:1; background:transparent; border:none; outline:none;
+             color:#f0d060; font-size:0.85rem; min-width:0;"
+      oninput="applyServerUrl(this.value)"
+    >
+    <span id="server-url-status" style="font-size:0.8rem; white-space:nowrap; color:#aaa">LAN mode</span>
+  </div>
+
+  <div id="lobby-msg">กำลังโหลดแคมเปญ...</div>
+  <div id="lobby-rooms"></div>
+  <div class="lobby-foot">
+    <button class="lobby-new" onclick="openModal()">+ สร้างแคมเปญใหม่</button>
+  </div>
+</div>
+
+<!-- ══ CREATE MODAL ══════════════════════════════════ -->
+<div id="modal-bg">
+  <div class="modal-sheet">
+    <div class="modal-title">🗺️ สร้างแคมเปญใหม่</div>
+    <div class="mf">
+      <label class="ml">ชื่อแคมเปญ</label>
+      <input class="mi" id="m-name" placeholder="เช่น: ดาบมังกรเหนือ, The Void Protocol">
+    </div>
+    <div class="mf">
+      <label class="ml">ธีม / Setting</label>
+      <div class="chips">
+        <button class="chip" onclick="pickTheme(this,'Fantasy')">⚔️ Fantasy</button>
+        <button class="chip" onclick="pickTheme(this,'Sci-Fi')">🚀 Sci-Fi</button>
+        <button class="chip" onclick="pickTheme(this,'Horror')">💀 Horror</button>
+        <button class="chip" onclick="pickTheme(this,'Mystery')">🔍 Mystery</button>
+        <button class="chip" onclick="pickTheme(this,'Cyberpunk')">🤖 Cyberpunk</button>
+        <button class="chip" onclick="pickTheme(this,'Pirate')">🏴‍☠️ Pirate</button>
+      </div>
+      <input class="mi" id="m-theme" placeholder="หรือพิมพ์ธีมเอง...">
+    </div>
+    <div class="mf">
+      <label class="ml">ชื่อตัวละคร</label>
+      <input class="mi" id="m-player" placeholder="เช่น: Kira, Aldric, นักรบเงา">
+    </div>
+    <div class="mf">
+      <label class="ml">Class / อาชีพ</label>
+      <input class="mi" id="m-class" placeholder="เช่น: Warrior, Mage, Rogue, Smuggler...">
+    </div>
+    <div class="hp-row">
+      <div class="mf">
+        <label class="ml">Max HP</label>
+        <input class="mi" id="m-hp" type="number" value="20" min="1" max="999">
+      </div>
+    </div>
+    <button class="modal-cta" onclick="createRoom()">⚔️ CREATE CAMPAIGN</button>
+    <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+  </div>
+</div>
+
+<!-- ══ QTE DICE OVERLAY ══════════════════════════════ -->
+<div id="qte-overlay">
+  <div id="qte-bg"></div>
+  <div id="qte-panel">
+    <div id="qte-dice-label">d20</div>
+    <div id="qte-reason-text">🎲 กำลังโหลด...</div>
+
+    <div id="qte-canvas-wrap">
+      <canvas id="dice-canvas"></canvas>
+      <div id="qte-face-num"><div id="qte-face-inner">20</div></div>
+    </div>
+
+    <div id="qte-tap-hint">แตะเต๋าหรือกดปุ่มเพื่อทอย</div>
+    <button id="qte-roll-btn" onclick="qteRoll()">🎲 ทอย!</button>
+    <div id="qte-verdict-row">
+      <div id="qte-verdict-text">SUCCESS</div>
+    </div>
+    <div id="qte-sending">กำลังส่งผลให้ DM...</div>
+  </div>
+</div>
+
+<!-- ══ GAME SCREEN ════════════════════════════════════ -->
+<canvas id="fx-canvas"></canvas>
+<div id="flash"></div>
+<div id="toast-box"></div>
+
+<div id="game">
+  <div id="hdr">
+    <button class="back-btn" onclick="backToLobby()">◀ Lobby</button>
+    <div class="hdr-info">
+      <div class="hdr-name" id="hdr-name">DND Adventure</div>
+      <div class="hdr-theme" id="hdr-theme">—</div>
+    </div>
+    <div class="sdot" id="sdot" title="Server status"></div>
+  </div>
+
+  <div id="strip">
+    <div class="pcard" id="player-card">
+      <div class="pcard-lbl" id="p-lbl">Player</div>
+      <div class="pcard-val" id="p-val">HP 20/20</div>
+      <div class="hpbar"><div class="hpfill" id="p-fill" style="width:100%"></div></div>
+    </div>
+  </div>
+
+  <div id="scroll-body">
+    <div id="story"></div>
+  </div>
+
+  <div id="chat-bar">
+    <div id="qbtns"><!-- populated by JS --></div>
+    <div class="irow">
+      <textarea id="msg-input" placeholder="บอก DM ว่าคุณทำอะไร..." rows="1"
+        onkeydown="onKey(event)"></textarea>
+      <button id="send-btn" onclick="sendAction()">➤</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════
+   SERVER URL — set by host in lobby screen
+   Empty string = same-origin (LAN / local mode)
+════════════════════════════════════════════════ */
+let SERVER_URL = sessionStorage.getItem('dnd_server_url') || '';
+
+function applyServerUrl(val) {
+  /* strip trailing slash */
+  SERVER_URL = val.trim().replace(/\/$/, '');
+  sessionStorage.setItem('dnd_server_url', SERVER_URL);
+  const s = document.getElementById('server-url-status');
+  if (!SERVER_URL) {
+    s.textContent = 'LAN mode'; s.style.color = '#aaa';
+  } else {
+    s.textContent = '🟢 Online'; s.style.color = '#7cfc00';
+  }
+  /* reload room list with new URL */
+  loadRooms();
+}
+
+/* ════════════════════════════════════════════════
+   GAME STATE
+════════════════════════════════════════════════ */
+const GS = {
+  player: { name:'Adventurer', cls:'Wanderer', hp:20, maxHp:20, inventory:[] },
+  enemies: {},
+};
+let roomId   = null;
+let pendRoll = null;   // {dice, reason}
+let waiting  = false;
+let qteOpen  = false;
+let qteRolled = false;
+
+/* ════════════════════════════════════════════════
+   DEFAULT QUICK BUTTONS
+════════════════════════════════════════════════ */
+function resetChoices(){
+  const q = document.getElementById('qbtns');
+  q.innerHTML = '';
+  [['⚔️ โจมตี','ฉันโจมตี!'],['✨ เวทมนตร์','ฉันใช้เวทมนตร์'],
+   ['💬 พูด','ฉันพูดกับ NPC'],['👁️ ตรวจสอบ','ฉันตรวจสอบรอบๆ'],
+   ['💨 หนี','ฉันหลบหนี!']].forEach(([label,text])=>{
+    const b=document.createElement('button');
+    b.className='qbtn'; b.textContent=label;
+    b.onclick=()=>qf(text); q.appendChild(b);
+  });
+}
+
+function renderChoices(choices){
+  const q = document.getElementById('qbtns');
+  q.innerHTML = '';
+  choices.slice(0,5).forEach(c=>{
+    const b=document.createElement('button');
+    b.className='qbtn choice-btn';
+    b.textContent=c;
+    b.onclick=()=>qf(c);
+    q.appendChild(b);
+  });
+}
+
+/* ════════════════════════════════════════════════
+   THREE.JS 3D DICE — per-face canvas textures
+   Each triangle face gets its own numbered canvas.
+   Fresh UV attribute created from scratch to avoid
+   undefined/wrong UVs from toNonIndexed().
+════════════════════════════════════════════════ */
+const DC = document.getElementById('dice-canvas');
+let sc, cam, ren, mesh;
+const phy = { vy:0, vx:0, rvx:0, rvy:0, rvz:0, settled:true };
+const TY  = 0.15;   // resting Y position
+let currentFaceNums = [];   // face→number map for top-face detection
+
+/* Create a 128×128 canvas with the die number drawn at the
+   centroid of the UV triangle used for each face. */
+function makeFaceTex(n, isQuad, quadHalf) {
+  const CV = document.createElement('canvas');
+  CV.width = CV.height = 128;
+  const c = CV.getContext('2d');
+
+  /* deep purple background */
+  const g = c.createRadialGradient(64,64,8, 64,64,68);
+  g.addColorStop(0, '#2c1054');
+  g.addColorStop(1, '#1a0a2e');
+  c.fillStyle = g;
+  c.fillRect(0, 0, 128, 128);
+
+  /* number */
+  c.fillStyle    = '#f0d060';
+  c.shadowColor  = '#f0d060';
+  c.shadowBlur   = 9;
+  c.font         = 'bold 58px Arial';
+  c.textAlign    = 'center';
+  c.textBaseline = 'middle';
+
+  /* For triangular UV (0,0)→(1,0)→(0.5,1):
+       centroid in UV space = (0.5, 0.333)
+       in canvas (Y-flipped)  = (64, ~85)           */
+  /* For quad first-half UV (0,0)→(1,0)→(0,1):
+       centroid = (0.333, 0.333) → canvas (43, 85)
+     For quad second-half UV (1,0)→(1,1)→(0,1):
+       centroid = (0.667, 0.667) → canvas (85, 43)
+     Use (64,64) for quads so number is centred in the full square */
+  const cy = isQuad ? 64 : 78;
+  c.fillText(String(n), 64, cy);
+
+  const t = new THREE.CanvasTexture(CV);
+  return t;
+}
+
+function buildDie(sides) {
+  if (mesh) { sc.remove(mesh); mesh = null; }
+
+  let geom;
+  if      (sides ===  4) geom = new THREE.TetrahedronGeometry(1.2, 0);
+  else if (sides ===  6) geom = new THREE.BoxGeometry(1, 1, 1);
+  else if (sides ===  8) geom = new THREE.OctahedronGeometry(1, 0);
+  else if (sides === 10) geom = new THREE.CylinderGeometry(0.01, 0.85, 0.90, 10, 1);
+  else if (sides === 12) geom = new THREE.DodecahedronGeometry(1, 0);
+  else if (sides===100)  geom = new THREE.CylinderGeometry(0.01, 0.85, 0.90, 10, 1);
+  else                   geom = new THREE.IcosahedronGeometry(1, 0); // D20
+
+  geom = geom.toNonIndexed();
+
+  const posCount  = geom.attributes.position.count;
+  const faceCount = posCount / 3;
+  const isBox     = (sides === 6);
+
+  /* ── Assign die numbers to each triangular face ── */
+  const faceNums = new Int32Array(faceCount);
+  if (isBox) {
+    /* BoxGeometry → 12 triangles → 6 quad faces (pairs) */
+    for (let f = 0; f < faceCount; f++) faceNums[f] = Math.floor(f / 2) + 1;
+  } else {
+    for (let f = 0; f < faceCount; f++) faceNums[f] = (f % sides) + 1;
+  }
+
+  /* ── Build fresh UV buffer ── */
+  const uvArr = new Float32Array(posCount * 2);
+  for (let f = 0; f < faceCount; f++) {
+    const b = f * 6;
+    if (isBox) {
+      if (f % 2 === 0) {          /* first triangle of quad */
+        uvArr[b+0]=0; uvArr[b+1]=0;
+        uvArr[b+2]=1; uvArr[b+3]=0;
+        uvArr[b+4]=0; uvArr[b+5]=1;
+      } else {                    /* second triangle of quad */
+        uvArr[b+0]=1; uvArr[b+1]=0;
+        uvArr[b+2]=1; uvArr[b+3]=1;
+        uvArr[b+4]=0; uvArr[b+5]=1;
+      }
+    } else {                      /* triangular face */
+      uvArr[b+0]=0;   uvArr[b+1]=0;
+      uvArr[b+2]=1;   uvArr[b+3]=0;
+      uvArr[b+4]=0.5; uvArr[b+5]=1;
+    }
+  }
+  geom.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+  geom.clearGroups();
+
+  /* ── Per-face materials with numbered canvas textures ── */
+  const mats = [];
+  for (let f = 0; f < faceCount; f++) {
+    const tex = makeFaceTex(faceNums[f], isBox, f % 2);
+    mats.push(new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }));
+    geom.addGroup(f * 3, 3, f);
+  }
+
+  mesh = new THREE.Mesh(geom, mats);
+  mesh.position.set(0, TY, 0);
+
+  /* gold wireframe overlay */
+  const wm = new THREE.LineBasicMaterial({ color: 0xd4a017 });
+  mesh.add(new THREE.LineSegments(new THREE.WireframeGeometry(geom), wm));
+
+  /* store face→number map for result reading */
+  currentFaceNums = Array.from(faceNums);
+
+  sc.add(mesh);
+}
+
+/* Read the number on the face pointing most toward the camera.
+   Camera direction (world space) → face with max dot(normal, camDir) is
+   the one the player sees most clearly = the result. */
+function getTopFaceResult() {
+  if (!mesh || !currentFaceNums.length) return 1;
+  const pos = mesh.geometry.attributes.position;
+  const faceCount = pos.count / 3;
+
+  /* unit vector from die center toward camera */
+  const camDir = cam.position.clone().normalize();
+
+  let bestFace = 0, bestDot = -Infinity;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  for (let f = 0; f < faceCount; f++) {
+    a.fromBufferAttribute(pos, f*3);
+    b.fromBufferAttribute(pos, f*3+1);
+    c.fromBufferAttribute(pos, f*3+2);
+    n.crossVectors(b.clone().sub(a), c.clone().sub(a)).normalize();
+    n.applyQuaternion(mesh.quaternion);   /* rotate to world space */
+    const dot = n.dot(camDir);
+    if (dot > bestDot) { bestDot = dot; bestFace = f; }
+  }
+  return currentFaceNums[bestFace] || 1;
+}
+
+function initDice() {
+  const W = 300, H = 300;
+  DC.width = W; DC.height = H;
+
+  sc  = new THREE.Scene();
+  cam = new THREE.PerspectiveCamera(50, W/H, 0.1, 100);
+  cam.position.set(0, 3.6, 3.6);   /* 45° above — looking down at die */
+  cam.lookAt(0, 0, 0);
+
+  ren = new THREE.WebGLRenderer({ canvas:DC, antialias:true, alpha:true });
+  ren.setSize(W, H);
+  ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+  ren.setClearColor(0, 0);
+
+  buildDie(20);  /* default D20 */
+
+  (function loop(){ requestAnimationFrame(loop); tickPhy(); ren.render(sc,cam); })();
+}
+
+function tickPhy() {
+  if (phy.settled) return;
+  phy.vy -= 0.022;
+  mesh.position.y += phy.vy;
+  mesh.position.x += phy.vx;
+  mesh.rotation.x += phy.rvx;
+  mesh.rotation.y += phy.rvy;
+  mesh.rotation.z += phy.rvz;
+
+  if (mesh.position.y <= TY) {
+    mesh.position.y = TY;
+    phy.vy  *= -0.32; phy.vx  *= 0.70;
+    phy.rvx *= 0.55;  phy.rvy *= 0.55; phy.rvz *= 0.55;
+    if (Math.abs(phy.vy) < 0.013 && Math.abs(phy.vx) < 0.013) {
+      phy.settled = true; mesh.position.x = 0;
+    }
+  }
+  if (Math.abs(mesh.position.x) > 1.8) {
+    phy.vx *= -0.55; mesh.position.x = Math.sign(mesh.position.x) * 1.8;
+  }
+}
+
+function launchDice() {
+  phy.settled = false;
+  phy.vx  = (Math.random()-.5) * 0.10;
+  phy.vy  = 0.25 + Math.random() * 0.18;
+  phy.rvx = (Math.random()-.5) * 0.26;
+  phy.rvy = (Math.random()-.5) * 0.26;
+  phy.rvz = (Math.random()-.5) * 0.10;
+  mesh.position.set(0, TY + 0.3, 0);
+  document.getElementById('qte-face-num').classList.remove('show');
+}
+
+/* ── QTE canvas charge-to-roll ── */
+let chargeT = 0, chargeTimer = null;
+DC.addEventListener('touchstart', e=>{ e.preventDefault(); startCharge(); }, {passive:false});
+DC.addEventListener('mousedown',  ()=>startCharge());
+DC.addEventListener('touchend',   e=>{ e.preventDefault(); releaseCharge(); }, {passive:false});
+DC.addEventListener('mouseup',    ()=>releaseCharge());
+
+function startCharge(){
+  if(!sc || !qteOpen || qteRolled) return;
+  chargeT = Date.now();
+  document.getElementById('qte-canvas-wrap').style.boxShadow =
+    '0 0 50px rgba(201,168,76,.55), inset 0 0 0 1px rgba(201,168,76,.4)';
+}
+function releaseCharge(){
+  if(!chargeT) return;
+  clearInterval(chargeTimer); chargeTimer = null;
+  const held = Date.now()-chargeT; chargeT = 0;
+  document.getElementById('qte-canvas-wrap').style.boxShadow =
+    '0 0 30px rgba(201,168,76,.15), inset 0 0 0 1px rgba(201,168,76,.1)';
+  if(held < 60) return;
+  qteRoll();
+}
+
+/* ════════════════════════════════════════════════
+   QTE FUNCTIONS
+════════════════════════════════════════════════ */
+function showQTE(dice, reason){
+  qteOpen   = true;
+  qteRolled = false;
+  waiting   = true;
+  document.getElementById('send-btn').disabled = true;
+
+  // d100 shows as "D%" to signal percentile roll
+  const diceLabel = dice.toLowerCase() === 'd100' ? 'D%' : dice.toUpperCase();
+  document.getElementById('qte-dice-label').textContent  = diceLabel;
+  document.getElementById('qte-reason-text').textContent = '🎲 ' + reason;
+  document.getElementById('qte-face-num').classList.remove('show');
+  document.getElementById('qte-verdict-row').classList.remove('show');
+  document.getElementById('qte-roll-btn').style.display  = 'block';
+  document.getElementById('qte-tap-hint').style.display  = 'block';
+  document.getElementById('qte-sending').style.display   = 'none';
+  document.getElementById('qte-overlay').classList.add('open');
+
+  // Rebuild die with correct face count for this roll
+  const sides = parseInt(dice.replace('d','')) || 20;
+  buildDie(sides);
+}
+
+function hideQTE(){
+  document.getElementById('qte-overlay').classList.remove('open');
+  qteOpen  = false;
+  waiting  = false;
+  document.getElementById('send-btn').disabled = false;
+}
+
+function qteRoll(){
+  if(!qteOpen || qteRolled) return;
+  qteRolled = true;
+
+  const sides = pendRoll ? parseInt(pendRoll.dice.replace(/[dD]/,'')) : 20;
+
+  document.getElementById('qte-roll-btn').style.display = 'none';
+  document.getElementById('qte-tap-hint').style.display = 'none';
+
+  launchDice();
+
+  let tries = 0;
+  const poll = setInterval(()=>{
+    if(phy.settled || ++tries > 120){
+      clearInterval(poll);
+      /* result = number on the upward-facing face */
+      const result = getTopFaceResult();
+      setTimeout(()=> showQTEResult(result, sides), 300);
+    }
+  }, 100);
+}
+
+function showQTEResult(result, sides){
+  // Determine outcome class
+  let cls, label;
+  if(result === sides){         cls='crit'; label='💥 CRITICAL HIT!'; }
+  else if(result === 1){        cls='fail'; label='💀 CRITICAL FAIL'; }
+  else if(result >= sides*0.7){ cls='ok';  label='✅ SUCCESS'; }
+  else if(result >= sides*0.4){ cls='ok';  label='⚡ PARTIAL'; }
+  else{                          cls='';    label='❌ MISS'; }
+
+  // Show big number overlay
+  const fi = document.getElementById('qte-face-inner');
+  // Shrink font slightly for 3-digit numbers (e.g. d100 result = 100)
+  fi.style.fontSize = result >= 100 ? 'clamp(2rem,9vw,3rem)' : '';
+  fi.textContent  = result;
+  fi.className    = cls;
+  document.getElementById('qte-face-num').classList.add('show');
+
+  // Verdict row
+  const vt = document.getElementById('qte-verdict-text');
+  vt.textContent = label;
+  vt.className   = cls;
+  document.getElementById('qte-verdict-row').classList.add('show');
+
+  showToast(
+    `🎲 ${result}/${sides}${cls==='crit'?' 💥 CRITICAL!':cls==='fail'?' 💀 FAIL!':''}`,
+    cls === 'crit' ? 'crit' : cls === 'fail' ? 'fail' : ''
+  );
+
+  // Auto-close and send to DM
+  setTimeout(()=>{
+    const dice   = pendRoll ? pendRoll.dice   : 'd20';
+    const reason = pendRoll ? pendRoll.reason : '';
+    const msg    = `[DICE RESULT: ${result} on ${dice} for ${reason}]`;
+    document.getElementById('qte-sending').style.display = 'block';
+    pendRoll = null;
+    hideQTE();
+    sendAction(msg);
+  }, 1600);
+}
+
+/* ════════════════════════════════════════════════
+   PENDING ROLL
+════════════════════════════════════════════════ */
+function setPendRoll(dice, reason){
+  pendRoll = {dice, reason};
+  showQTE(dice, reason);
+}
+
+/* ════════════════════════════════════════════════
+   HP MANAGEMENT
+════════════════════════════════════════════════ */
+function syncPlayerCard(){
+  const pct = GS.player.maxHp>0 ? GS.player.hp/GS.player.maxHp*100 : 0;
+  document.getElementById('p-lbl').textContent = GS.player.name;
+  document.getElementById('p-val').textContent =
+    `${GS.player.cls}  HP ${GS.player.hp}/${GS.player.maxHp}`;
+  const f = document.getElementById('p-fill');
+  f.style.width      = pct + '%';
+  f.style.background = pct>50 ? '#27ae60' : pct>25 ? '#e67e22' : '#c0392b';
+}
+
+function applyHPDelta(delta){
+  GS.player.hp = Math.max(0, Math.min(GS.player.maxHp, GS.player.hp + delta));
+  syncPlayerCard();
+}
+
+function upsertEnemy(name, hp, maxHp){
+  const key = name.toLowerCase();
+  const eid = 'ec_' + key.replace(/\W/g,'_');
+  if(!GS.enemies[key]){
+    GS.enemies[key] = {name, hp, maxHp};
+    const d = document.createElement('div');
+    d.className = 'ecard'; d.id = eid;
+    d.innerHTML = `<div class="pcard-lbl">ENEMY</div>
+      <div class="pcard-val" style="color:#e74c3c" id="${eid}n">${name}</div>
+      <div class="pcard-val" style="font-size:.72rem" id="${eid}h">HP ${hp}/${maxHp}</div>
+      <div class="hpbar"><div class="hpfill" id="${eid}f" style="width:100%;background:#c0392b"></div></div>`;
+    document.getElementById('strip').appendChild(d);
+  } else {
+    GS.enemies[key].hp = hp; GS.enemies[key].maxHp = maxHp;
+  }
+  refreshEnemy(key);
+}
+
+function applyEnemyDelta(name, val){
+  const key = name.toLowerCase();
+  if(!GS.enemies[key]) upsertEnemy(name, val==='dead'?0:30, 30);
+  if(val === 'dead'){ GS.enemies[key].hp = 0; showToast(`💀 ${name} defeated!`, 'crit'); }
+  else { GS.enemies[key].hp = Math.max(0, GS.enemies[key].hp + val); }
+  refreshEnemy(key);
+}
+
+function refreshEnemy(key){
+  const e  = GS.enemies[key];
+  const id = 'ec_' + key.replace(/\W/g,'_');
+  const el = document.getElementById(id); if(!el) return;
+  const pct = e.maxHp>0 ? e.hp/e.maxHp*100 : 0;
+  const hEl = document.getElementById(id+'h');
+  const fEl = document.getElementById(id+'f');
+  if(hEl) hEl.textContent = `HP ${e.hp}/${e.maxHp}`;
+  if(fEl) fEl.style.width = pct + '%';
+  el.className = e.hp<=0 ? 'ecard dead' : 'ecard';
+  if(e.hp<=0 && !el.querySelector('.edead')){
+    const x = document.createElement('div'); x.className='edead'; x.textContent='✕';
+    el.appendChild(x);
+  }
+}
+
+/* ════════════════════════════════════════════════
+   DM CALL
+════════════════════════════════════════════════ */
+async function callDM(msg){
+  if(!roomId){ showToast('❌ ยังไม่ได้เข้าห้อง','fail'); return null; }
+  try{
+    const r = await fetch(SERVER_URL+'/dm', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        room_id: roomId,
+        player_message: msg,
+        game_state:{
+          player:{ name:GS.player.name, hp:GS.player.hp, max_hp:GS.player.maxHp, inventory:GS.player.inventory },
+          enemies: Object.values(GS.enemies).filter(e=>e.hp>0)
+            .map(e=>({name:e.name, hp:e.hp, max_hp:e.maxHp})),
+        },
+      }),
+    });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if(d.room_snapshot?.player_state){
+      const ps = d.room_snapshot.player_state;
+      GS.player.hp = ps.hp; GS.player.maxHp = ps.max_hp;
+    }
+    return d;
+  }catch(e){ return {error:e.message, dm_response:''}; }
+}
+
+function processDM(raw){
+  if(!raw) return;
+
+  // HP tags
+  for(const m of raw.matchAll(/\[HP:([+-]\d+)\]/g)){
+    const d = parseInt(m[1]); applyHPDelta(d);
+    showToast(d<0 ? `❤️ HP ${d}` : `💚 HP +${Math.abs(d)}`, d<0?'dmg':'heal');
+  }
+  // Enemy tags
+  for(const m of raw.matchAll(/\[ENEMY:([^:]+):([^\]]+)\]/g)){
+    const [,val,name] = m;
+    applyEnemyDelta(name.trim(), val==='dead'?'dead':parseInt(val));
+  }
+  // Roll tag — matches d4/d6/d8/d10/d12/d20/d100 (case-insensitive prefix)
+  const rm = raw.match(/\[ROLL:([dD]\d+):([^\]]+)\]/);
+  if(rm) setPendRoll(rm[1], rm[2]);
+
+  // Choice tags → dynamic buttons
+  const choices = [...raw.matchAll(/\[CHOICE:([^\]]+)\]/g)].map(m => m[1].trim());
+  if(choices.length) renderChoices(choices);
+
+  // Strip all tags for display
+  const display = raw
+    .replace(/\[[A-Z_]+:[^\]]+\]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if(display) addMsg('🎲 DM', 'dm', display, 'dm');
+}
+
+/* ════════════════════════════════════════════════
+   SEND
+════════════════════════════════════════════════ */
+async function sendAction(override){
+  if(waiting) return;
+  const inp  = document.getElementById('msg-input');
+  const text = override || inp.value.trim();
+  if(!text) return;
+  if(!override){ inp.value = ''; autoH(inp); }
+
+  waiting = true;
+  document.getElementById('send-btn').disabled = true;
+
+  if(!text.startsWith('[DICE RESULT')) addMsg('👤 You', 'player', text, 'player');
+  const typing = addTyping();
+
+  const data = await callDM(text);
+  typing.remove(); waiting = false;
+  document.getElementById('send-btn').disabled = false;
+
+  if(!data) return;
+  if(data.error){
+    const msg = (data.error.toLowerCase().includes('load') ||
+                 data.error.toLowerCase().includes('fetch') ||
+                 data.error.toLowerCase().includes('network'))
+      ? 'ไม่สามารถเชื่อมต่อ server ได้ กรุณาตรวจสอบว่า server รันอยู่ที่ port 8765 แล้วลองใหม่'
+      : 'เกิดข้อผิดพลาด: ' + data.error + ' — กรุณาลองใหม่';
+    addMsg('⚠️ การเชื่อมต่อล้มเหลว','sys', msg, 'sys');
+    return;
+  }
+  if(data.dm_response) processDM(data.dm_response);
+  scrollDown();
+}
+
+function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendAction(); } }
+function qf(t){ const i=document.getElementById('msg-input'); i.value=t; i.focus(); autoH(i); }
+
+/* ════════════════════════════════════════════════
+   LOBBY
+════════════════════════════════════════════════ */
+const TICONS = {
+  fantasy:'⚔️',medieval:'⚔️',dungeon:'🏰','sci-fi':'🚀',space:'🚀',
+  scifi:'🚀',horror:'💀',dark:'💀',mystery:'🔍',detective:'🔍',
+  cyberpunk:'🤖',cyber:'🤖',pirate:'🏴‍☠️',sea:'⛵',modern:'🏙️',
+};
+function ticon(theme){
+  if(!theme) return '🎲';
+  const t = theme.toLowerCase();
+  for(const[k,v] of Object.entries(TICONS)) if(t.includes(k)) return v;
+  return '🎲';
+}
+function ago(iso){
+  if(!iso) return '';
+  const s = (Date.now()-new Date(iso).getTime())/1000;
+  if(s<60)    return 'เมื่อกี้';
+  if(s<3600)  return `${Math.floor(s/60)} นาทีที่แล้ว`;
+  if(s<86400) return `${Math.floor(s/3600)} ชั่วโมงที่แล้ว`;
+  return `${Math.floor(s/86400)} วันที่แล้ว`;
+}
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadRooms(){
+  const m = document.getElementById('lobby-msg');
+  try{
+    const r = await fetch(SERVER_URL+'/rooms');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rooms = await r.json();
+    m.textContent=''; m.className='';
+    renderRooms(rooms);
+  }catch(e){
+    m.textContent='⚠️ Server offline — รัน start_server.bat ก่อน';
+    m.className='err';
+    renderRooms([]);
+  }
+}
+
+function renderRooms(rooms){
+  const c = document.getElementById('lobby-rooms');
+  if(!rooms.length){
+    c.innerHTML = `<div class="lobby-empty">
+      <div class="ei">🗺️</div>
+      <p>ยังไม่มีแคมเปญ<br>กด "สร้างแคมเปญใหม่" เพื่อเริ่ม!</p>
+    </div>`;
+    return;
+  }
+  c.innerHTML = rooms.map(r=>`
+    <div class="rc" onclick="joinRoom('${esc(r.room_id)}')">
+      <div class="rc-icon">${ticon(r.theme)}</div>
+      <div class="rc-info">
+        <div class="rc-name">${esc(r.display_name)}</div>
+        <div class="rc-theme">${esc(r.theme)} · Turn ${r.turn_count||0}</div>
+        <div class="rc-player">${esc(r.player_name)} (${esc(r.player_class)}) · HP ${r.player_hp}/${r.player_max_hp}</div>
+        ${r.last_scene ? `<div class="rc-scene">${esc(r.last_scene)}</div>` : ''}
+      </div>
+      <div class="rc-meta">
+        <div class="rc-time">${ago(r.last_played_at)}</div>
+        <button class="rc-play">▶ PLAY</button>
+        <button class="rc-del" onclick="delRoom(event,'${esc(r.room_id)}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+async function joinRoom(id){
+  try{
+    const r = await fetch(`${SERVER_URL}/rooms/${id}`);
+    if(!r.ok) throw new Error('not found');
+    const room = await r.json();
+    roomId = id;
+
+    const ps = room.player_state;
+    GS.player.name      = ps.name;
+    GS.player.cls       = ps.class || 'Adventurer';
+    GS.player.hp        = ps.hp;
+    GS.player.maxHp     = ps.max_hp;
+    GS.player.inventory = ps.inventory || [];
+    GS.enemies = {};
+    document.querySelectorAll('.ecard').forEach(e=>e.remove());
+
+    (room.characters||[])
+      .filter(c=>c.type==='enemy' && c.status==='alive')
+      .forEach(c=>upsertEnemy(c.name, c.hp||10, c.max_hp||10));
+
+    document.getElementById('hdr-name').textContent  = room.display_name;
+    document.getElementById('hdr-theme').textContent = room.theme;
+    syncPlayerCard();
+    resetChoices();
+
+    document.getElementById('story').innerHTML = '';
+    if(room.turn_count === 0){
+      addMsg('📜 DM','sys',
+        `ยินดีต้อนรับสู่ "${room.display_name}" (${room.theme})\nบอก DM ว่าต้องการเริ่มต้นผจญภัยอย่างไร!`,'sys');
+    } else {
+      addMsg('📖 บันทึกล่าสุด','sys',
+        room.last_scene||'ต่อจากการผจญภัยครั้งก่อน...','sys');
+    }
+
+    hideLobby();
+    scrollDown();
+    checkHealth();
+  }catch(e){ alert('เข้าห้องไม่ได้: '+e.message); }
+}
+
+async function delRoom(e,id){
+  e.stopPropagation();
+  if(!confirm('ลบแคมเปญนี้? ข้อมูลจะหายถาวร')) return;
+  try{
+    await fetch(`${SERVER_URL}/rooms/${id}`,{method:'DELETE'});
+    loadRooms();
+  }catch(e){ alert('ลบไม่ได้: '+e.message); }
+}
+
+let _theme='';
+function pickTheme(btn,t){
+  _theme=t;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('m-theme').value=t;
+}
+function openModal()  { document.getElementById('modal-bg').classList.add('open'); }
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+
+async function createRoom(){
+  const name  = document.getElementById('m-name').value.trim();
+  const theme = document.getElementById('m-theme').value.trim();
+  const pname = document.getElementById('m-player').value.trim();
+  const cls   = document.getElementById('m-class').value.trim();
+  const hp    = parseInt(document.getElementById('m-hp').value) || 20;
+  if(!name)  { alert('กรุณาใส่ชื่อแคมเปญ'); return; }
+  if(!theme) { alert('กรุณาเลือกหรือพิมพ์ธีม'); return; }
+  if(!pname) { alert('กรุณาใส่ชื่อตัวละคร'); return; }
+  if(!cls)   { alert('กรุณาใส่ class/อาชีพ'); return; }
+  try{
+    const r = await fetch(SERVER_URL+'/rooms',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({display_name:name,theme,player_name:pname,player_class:cls,player_max_hp:hp}),
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const room = await r.json();
+    closeModal();
+    ['m-name','m-theme','m-player','m-class'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('m-hp').value='20';
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    _theme='';
+    joinRoom(room.room_id);
+  }catch(e){ alert('สร้างห้องไม่ได้: '+e.message); }
+}
+
+function hideLobby(){
+  const l = document.getElementById('lobby');
+  l.classList.add('fade-out');
+  setTimeout(()=>{ l.style.display='none'; }, 360);
+}
+function backToLobby(){
+  roomId = null;
+  resetChoices();
+  const l = document.getElementById('lobby');
+  l.style.display='flex';
+  l.classList.remove('fade-out');
+  loadRooms();
+}
+
+/* ════════════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════════════ */
+function showToast(txt, cls){
+  const t = document.createElement('div');
+  t.className = 'toast' + (cls ? ' '+cls : '');
+  t.textContent = txt;
+  document.getElementById('toast-box').appendChild(t);
+  setTimeout(()=>t.remove(), 3100);
+}
+
+function addMsg(lbl, lblCls, body, bodyCls){
+  const story = document.getElementById('story');
+  const e = document.createElement('div'); e.className='sentry';
+  const l = document.createElement('div'); l.className='slbl '+lblCls; l.textContent=lbl;
+  const b = document.createElement('div'); b.className='sbody '+bodyCls; b.textContent=body;
+  e.appendChild(l); e.appendChild(b);
+  story.appendChild(e);
+  return e;
+}
+
+function addTyping(){
+  const story = document.getElementById('story');
+  const e = document.createElement('div'); e.className='sentry';
+  const l = document.createElement('div'); l.className='slbl dm'; l.textContent='🎲 DM';
+  const b = document.createElement('div'); b.className='sbody dm';
+  b.innerHTML='<div class="tdots"><span></span><span></span><span></span></div>';
+  e.appendChild(l); e.appendChild(b);
+  story.appendChild(e);
+  scrollDown();
+  return e;
+}
+
+function scrollDown(){
+  const sb = document.getElementById('scroll-body');
+  sb.scrollTop = sb.scrollHeight;
+}
+function autoH(ta){
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
+}
+document.getElementById('msg-input').addEventListener('input', function(){ autoH(this); });
+
+/* ════════════════════════════════════════════════
+   HEALTH CHECK
+════════════════════════════════════════════════ */
+function checkHealth(){
+  fetch(SERVER_URL+'/health')
+    .then(r=>r.ok ? r.json() : Promise.reject())
+    .then(()=>document.getElementById('sdot').className='sdot ok')
+    .catch(()=>document.getElementById('sdot').className='sdot err');
+}
+setInterval(checkHealth, 12000);
+
+/* ════════════════════════════════════════════════
+   FX CANVAS
+════════════════════════════════════════════════ */
+const fc = document.getElementById('fx-canvas');
+const fx = fc.getContext('2d');
+let parts=[], fxRun=false;
+function rfx(){ fc.width=fc.clientWidth; fc.height=fc.clientHeight; }
+window.addEventListener('resize', rfx);
+
+/* ════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════ */
+window.addEventListener('load', ()=>{
+  /* restore saved server URL into input */
+  const saved = sessionStorage.getItem('dnd_server_url') || '';
+  const inp = document.getElementById('server-url-input');
+  if (inp) {
+    inp.value = saved;
+    if (saved) {
+      const s = document.getElementById('server-url-status');
+      if (s) { s.textContent = '🟢 Online'; s.style.color = '#7cfc00'; }
+    }
+  }
+
+  initDice();
+  rfx();
+  resetChoices();
+  loadRooms();
+  checkHealth();
+  setInterval(()=>{
+    const l = document.getElementById('lobby');
+    if(l.style.display !== 'none' && !l.classList.contains('fade-out')) loadRooms();
+  }, 30000);
+});
+</script>
+</body>
+</html>
