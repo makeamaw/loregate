@@ -147,7 +147,7 @@ html,body{
 .modal-sheet{
   background:var(--bg2);border-top:1px solid var(--border);
   border-radius:20px 20px 0 0;width:100%;
-  max-height:90dvh;overflow-y:auto;padding:20px 16px 30px;
+  max-height:92dvh;overflow-y:auto;padding:16px 14px 24px;
   padding-bottom:calc(30px + env(safe-area-inset-bottom));
   box-shadow:0 -4px 30px rgba(0,0,0,.3);
 }
@@ -684,19 +684,17 @@ html,body{
         <label class="ml">ธีม</label>
         <input class="mi" id="m-theme" placeholder="Fantasy, Horror, Sci-Fi...">
       </div>
-      <div style="display:flex;gap:10px;">
-        <div class="mf" style="flex:1;">
-          <label class="ml">ชื่อตัวละคร</label>
-          <input class="mi" id="m-player" placeholder="ชื่อ">
-        </div>
-        <div class="mf" style="flex:1;">
-          <label class="ml">Class</label>
-          <input class="mi" id="m-class" placeholder="Warrior, Mage...">
-        </div>
+      <div class="mf">
+        <label class="ml">ชื่อตัวละคร</label>
+        <input class="mi" id="m-player" placeholder="ชื่อ">
       </div>
-      <div class="mf" style="max-width:120px;">
+      <div class="mf">
+        <label class="ml">Class</label>
+        <input class="mi" id="m-class" placeholder="Warrior, Mage...">
+      </div>
+      <div class="mf">
         <label class="ml">Max HP</label>
-        <input class="mi" id="m-hp" type="number" value="20" min="1" max="999">
+        <input class="mi" id="m-hp" type="number" value="20" min="1" max="999" style="max-width:100px;">
       </div>
       <button class="modal-cta" onclick="confirmCampaign()">⚔️ เริ่มเลย!</button>
       <button class="modal-cancel" onclick="backToStep1()">← แก้ไข</button>
