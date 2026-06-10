@@ -1451,4 +1451,51 @@ window.addEventListener('load', ()=>{
   if (inp) {
     inp.value = saved;
     if (saved) {
-      const s = document
+      const s = document.getElementById('server-url-status');
+      if (s) { s.textContent = '🟢 Online'; s.style.color = '#7cfc00'; }
+    }
+  }
+
+  initDice();
+  rfx();
+  resetChoices();
+  checkHealth();
+  setInterval(()=>{
+    const l = document.getElementById('lobby');
+    if(l.style.display !== 'none' && !l.classList.contains('fade-out')) loadRooms();
+  }, 30000);
+
+  /* ── Auto-detect server URL from GitHub Gist ──────────────────
+     start_auto.py โพส URL ล่าสุดลง Gist ทุกครั้งที่เริ่ม server
+     เกมดึง URL มาเชื่อมต่ออัตโนมัติ ไม่ต้อง paste เอง
+  ────────────────────────────────────────────────────────────── */
+  const GIST_RAW = "https://gist.githubusercontent.com/makeamaw/76f8b3ae3e6bc234d8715f75bb89dbb8/raw/server_url.txt";
+  const gistReady = GIST_RAW.indexOf("PLACEHOLDER") === -1;
+
+  if (gistReady && !saved) {
+    /* แสดง "กำลังค้นหา..." ขณะ fetch */
+    const sEl = document.getElementById('server-url-status');
+    if (sEl) { sEl.textContent = '🔍 กำลังค้นหา...'; sEl.style.color = '#ffd700'; }
+  }
+
+  if (gistReady) {
+    fetch(GIST_RAW + "?t=" + Date.now())
+      .then(r => r.text())
+      .then(u => {
+        u = u.trim();
+        if (u && u.startsWith('http') && u !== 'none' && u !== SERVER_URL) {
+          const inp = document.getElementById('server-url-input');
+          if (inp) inp.value = u;
+          applyServerUrl(u);   /* applyServerUrl เรียก loadRooms */
+          return;
+        }
+        loadRooms();           /* Gist ว่าง/none → โหลดปกติ */
+      })
+      .catch(() => loadRooms()); /* fetch ล้มเหลว → โหลดปกติ */
+  } else {
+    loadRooms();  /* Gist ยังไม่ตั้งค่า → โหลดปกติ */
+  }
+});
+</script>
+</body>
+</html>
