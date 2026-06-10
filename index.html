@@ -1378,7 +1378,7 @@ async function loadRooms(){
     if(_loadRetry <= 4){
       /* server อาจยังไม่พร้อม — retry อัตโนมัติ */
       const wait = _loadRetry * 3;
-      m.textContent=\`⏳ กำลังเชื่อมต่อ... (ลอง \${_loadRetry}/4)\`;
+      m.textContent=`⏳ กำลังเชื่อมต่อ... (ลอง ${_loadRetry}/4)`;
       m.className='';
       renderRooms([]);
       setTimeout(loadRooms, wait * 1000);
