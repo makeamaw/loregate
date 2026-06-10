@@ -1925,32 +1925,58 @@ setInterval(checkHealth, 12000);
    FX CANVAS
 ════════════════════════════════════════════════ */
 /* ════════════════════════════════════════════════
-   TTS — Thai Text-to-Speech via edge-tts
+   TTS — Thai Text-to-Speech via edge-tts (segment queue)
 ════════════════════════════════════════════════ */
 let ttsEnabled = false;
-let ttsAudio   = null;
-let ttsVoice   = 'th-TH-PremwadeeNeural';
+let ttsQueue   = [];
+let ttsPlaying = false;
+let ttsVoice   = { narrator: 'th-TH-PremwadeeNeural', male: 'th-TH-NiwatNeural', female: 'th-TH-PremwadeeNeural' };
 
 function toggleTTS(){
   ttsEnabled = !ttsEnabled;
   const btn = document.getElementById('tts-toggle');
   if(btn) btn.textContent = ttsEnabled ? '🔊' : '🔇';
-  if(!ttsEnabled && ttsAudio){ ttsAudio.pause(); ttsAudio = null; }
+  if(!ttsEnabled){ ttsQueue = []; ttsPlaying = false; }
 }
 
 function setTTSVoice(gender){
-  ttsVoice = (gender === 'male') ? 'th-TH-NiwatNeural' : 'th-TH-PremwadeeNeural';
+  if(gender === 'male'){
+    ttsVoice.narrator = 'th-TH-NiwatNeural';
+    ttsVoice.male     = 'th-TH-NiwatNeural';
+  } else {
+    ttsVoice.narrator = 'th-TH-PremwadeeNeural';
+    ttsVoice.female   = 'th-TH-PremwadeeNeural';
+  }
 }
 
-function playTTS(btn){
+function drainTTSQueue(){
+  if(!ttsQueue.length){ ttsPlaying = false; return; }
+  ttsPlaying = true;
+  const seg   = ttsQueue.shift();
+  const voice = ttsVoice[seg.voice] || ttsVoice.narrator;
+  const srv   = SERVER_URL || '';
+  if(!srv){ ttsPlaying = false; return; }
+  const audio = new Audio(`${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`);
+  audio.onended = drainTTSQueue;
+  audio.onerror = drainTTSQueue;
+  audio.play().catch(drainTTSQueue);
+}
+
+async function playTTS(btn){
   const text = btn.dataset.text;
   if(!text) return;
-  if(ttsAudio){ ttsAudio.pause(); ttsAudio = null; }
-  const serverUrl = SERVER_URL || '';
-  if(!serverUrl) return;
-  const url = `${serverUrl}/tts?voice=${ttsVoice}&text=${encodeURIComponent(text)}`;
-  ttsAudio = new Audio(url);
-  ttsAudio.play().catch(e => console.warn('TTS play failed:', e));
+  const srv = SERVER_URL || '';
+  if(!srv) return;
+  ttsQueue   = [];
+  ttsPlaying = false;
+  try {
+    const r    = await fetch(`${srv}/tts/parse?text=${encodeURIComponent(text)}`);
+    const data = await r.json();
+    ttsQueue.push(...(data.segments || [{text, voice:'narrator'}]));
+  } catch(e){
+    ttsQueue = [{text, voice:'narrator'}];
+  }
+  drainTTSQueue();
 }
 
 function autoPlayTTS(text){
