@@ -1148,17 +1148,24 @@ function processDM(raw){
     const [,val,name] = m;
     applyEnemyDelta(name.trim(), val==='dead'?'dead':parseInt(val));
   }
-  // Roll tag — matches d4/d6/d8/d10/d12/d20/d100 (case-insensitive prefix)
+  // Roll tag — [ROLL:d20:reason] (correct format)
   const rm = raw.match(/\[ROLL:([dD]\d+):([^\]]+)\]/);
   if(rm) setPendRoll(rm[1], rm[2]);
+
+  // Fallback: DM used [DICE RESULT: ? on d20 for reason] instead of [ROLL:...]
+  if(!rm){
+    const rm2 = raw.match(/\[DICE RESULT:\s*\?\s*on\s*(d\d+)\s+for\s+([^\]]+)\]/i);
+    if(rm2) setPendRoll(rm2[1], rm2[2].trim());
+  }
 
   // Choice tags → dynamic buttons
   const choices = [...raw.matchAll(/\[CHOICE:([^\]]+)\]/g)].map(m => m[1].trim());
   if(choices.length) renderChoices(choices);
 
-  // Strip all tags for display
+  // Strip all tags for display (including malformed DICE RESULT? tags)
   const display = raw
     .replace(/\[[A-Z_]+:[^\]]+\]/g, '')
+    .replace(/\[DICE RESULT:[^\]]*\]/gi, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   if(display) addMsg('🎲 DM', 'dm', display, 'dm');
@@ -1443,20 +1450,4 @@ window.addEventListener('load', ()=>{
     inp.value = saved;
     if (saved) {
       const s = document.getElementById('server-url-status');
-      if (s) { s.textContent = '🟢 Online'; s.style.color = '#7cfc00'; }
-    }
-  }
-
-  initDice();
-  rfx();
-  resetChoices();
-  loadRooms();
-  checkHealth();
-  setInterval(()=>{
-    const l = document.getElementById('lobby');
-    if(l.style.display !== 'none' && !l.classList.contains('fade-out')) loadRooms();
-  }, 30000);
-});
-</script>
-</body>
-</html>
+      if (s) { s.textContent = '🟢 Online'; s.style.color = '#7cf
