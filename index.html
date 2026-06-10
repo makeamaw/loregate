@@ -264,7 +264,27 @@ html,body{
 #strip{
   padding:8px 10px;display:flex;gap:8px;flex-wrap:wrap;
   flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg2);
+  position:relative;transition:padding .2s;
 }
+#strip.collapsed{
+  padding:5px 10px;flex-wrap:nowrap;align-items:center;gap:6px;
+}
+#strip.collapsed .pcard,
+#strip.collapsed .ecard{ display:none; }
+#strip-mini{
+  display:none;font-size:.73rem;color:var(--muted);
+  flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.4;
+}
+#strip.collapsed #strip-mini{ display:block; }
+#strip-toggle{
+  flex-shrink:0;
+  background:none;border:1px solid var(--border);border-radius:12px;
+  padding:2px 9px;font-size:.65rem;color:var(--muted);cursor:pointer;
+  user-select:none;transition:border-color .15s,color .15s;
+  line-height:1.6;
+}
+#strip-toggle:hover{ border-color:var(--gold-border);color:var(--gold2); }
 .pcard{
   background:var(--bg3);border:1px solid var(--border);
   border-radius:var(--radius);padding:8px 12px;min-width:110px;
@@ -817,6 +837,8 @@ html,body{
   </div>
 
   <div id="strip">
+    <div id="strip-mini"></div>
+    <button id="strip-toggle" onclick="toggleStrip()">∨</button>
     <div class="pcard" id="player-card">
       <div class="pcard-lbl" id="p-lbl">Player</div>
       <div class="pcard-val" id="p-val">HP 20/20</div>
@@ -1306,6 +1328,24 @@ function setPendRoll(dice, reason){
 /* ════════════════════════════════════════════════
    HP MANAGEMENT
 ════════════════════════════════════════════════ */
+function updateStripMini(){
+  const p = GS.player;
+  const pct = p.maxHp > 0 ? p.hp/p.maxHp : 1;
+  const dot = pct > 0.5 ? '🟢' : pct > 0.25 ? '🟡' : '🔴';
+  const alive = Object.values(GS.enemies).filter(e => e.hp > 0);
+  const eStr = alive.length ? ` · ⚔ ${alive.length} enemy` : '';
+  document.getElementById('strip-mini').textContent =
+    `${dot} ${p.name} ❤ ${p.hp}/${p.maxHp}  Lv ${p.level}${eStr}`;
+}
+
+function toggleStrip(){
+  const strip = document.getElementById('strip');
+  const btn   = document.getElementById('strip-toggle');
+  const col   = strip.classList.toggle('collapsed');
+  btn.textContent = col ? '∧' : '∨';
+  if(col) updateStripMini();
+}
+
 function syncPlayerCard(){
   const p   = GS.player;
   const pct = p.maxHp>0 ? p.hp/p.maxHp*100 : 0;
@@ -1343,6 +1383,7 @@ function syncPlayerCard(){
   } else {
     bi.innerHTML = '<span class="bd-empty">— ยังไม่มีไอเทม —</span>';
   }
+  updateStripMini();
 }
 
 function toggleBag(){
