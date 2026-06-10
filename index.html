@@ -141,8 +141,9 @@ html,body{
   position:fixed;inset:0;z-index:700;
   background:rgba(0,0,0,.7);
   display:none;align-items:flex-end;justify-content:center;
-  max-width:430px;left:50%;transform:translateX(-50%);
+  max-width:100%;left:0;transform:none;
 }
+.modal-sheet{max-width:480px;margin:0 auto;width:100%;}
 #modal-bg.open{display:flex;}
 .modal-sheet{
   background:var(--bg2);border-top:1px solid var(--border);
@@ -184,6 +185,21 @@ html,body{
   color:var(--muted);font-size:.82rem;cursor:pointer;
 }
 
+
+/* ── Recap button ─────────────────────────────────────── */
+#recap-btn-wrap{text-align:center;padding:10px 0 4px;}
+.recap-btn{
+  background:none;border:1px solid var(--border2);
+  border-radius:20px;padding:6px 16px;
+  font-size:.8rem;color:var(--muted);cursor:pointer;
+  transition:border-color .15s,color .15s;
+}
+.recap-btn:hover{border-color:var(--gold);color:var(--gold2);}
+/* ── History divider ──────────────────────────────────── */
+.hist-divider{
+  text-align:center;font-size:.7rem;color:var(--muted);
+  padding:6px 0 2px;opacity:.6;
+}
 /* ══════════════════════════════════════════════════
    GAME SCREEN
 ══════════════════════════════════════════════════ */
@@ -1442,9 +1458,25 @@ async function joinRoom(id){
     resetChoices();
 
     document.getElementById('story').innerHTML = '';
+    const _tail = room.history_tail || [];
     if(room.turn_count === 0){
       addMsg('📜 DM','sys',
         `ยินดีต้อนรับสู่ "${room.display_name}" (${room.theme})\nบอก DM ว่าต้องการเริ่มต้นผจญภัยอย่างไร!`,'sys');
+    } else if(_tail.length > 0){
+      /* แสดงประวัติล่าสุด 10 รายการ */
+      const _story = document.getElementById('story');
+      const _rb = document.createElement('div');
+      _rb.id = 'recap-btn-wrap';
+      _rb.innerHTML = '<button class="recap-btn" onclick="sendRecap()">🔁 ให้ DM รีแคปเรื่องราว</button>';
+      _story.appendChild(_rb);
+      const _divider = document.createElement('div');
+      _divider.className = 'hist-divider';
+      _divider.textContent = `── ประวัติล่าสุด ${Math.min(_tail.length,10)} ครั้ง ──`;
+      _story.appendChild(_divider);
+      _tail.slice(-10).forEach(e=>{
+        if(e.role==='dm')     addMsg('🎲 DM','dm', e.content,'dm');
+        else if(e.role==='player') addMsg('👤 คุณ','player', e.content,'player');
+      });
     } else {
       addMsg('📖 บันทึกล่าสุด','sys',
         room.last_scene||'ต่อจากการผจญภัยครั้งก่อน...','sys');
@@ -1544,6 +1576,11 @@ function hideLobby(){
   const l = document.getElementById('lobby');
   l.classList.add('fade-out');
   setTimeout(()=>{ l.style.display='none'; }, 360);
+}
+function sendRecap(){
+  const rb = document.getElementById('recap-btn-wrap');
+  if(rb) rb.remove();
+  qf('รีแคปเรื่องราวทั้งหมดที่ผ่านมาอย่างย่อให้ฉัน ใน 3-5 ประโยค ภาษาไทย');
 }
 function backToLobby(){
   roomId = null;
