@@ -318,6 +318,13 @@ html,body{
   transition:border-color .15s,color .15s;
 }
 #tts-toggle:hover{border-color:var(--gold-border);color:var(--gold2);}
+#ambBtn{
+  background:none;border:1px solid var(--border);border-radius:12px;
+  padding:2px 8px;font-size:.75rem;cursor:pointer;color:var(--muted);
+  transition:border-color .15s,color .15s;
+}
+#ambBtn:hover{border-color:var(--gold-border);color:var(--gold2);}
+#ambBtn.active{border-color:var(--gold);color:var(--gold2);}
 .tts-play-btn{
   background:none;border:none;cursor:pointer;font-size:.7rem;
   color:var(--muted);padding:0 4px;opacity:0.6;transition:opacity .15s;
@@ -845,6 +852,7 @@ html,body{
       <span class="hpill lv-pill" id="hpill-lv">Lv 1</span>
       <button class="hpill bag-pill" id="hpill-bag" onclick="toggleBag()">🎒 <span id="bag-ct">0</span></button>
       <button id="tts-toggle" onclick="ttsStopAll()" title="หยุดเสียง">⏹</button>
+      <button id="ambBtn" onclick="toggleAmb()" title="Ambient Sound">🎵</button>
       <audio id="tts-audio" preload="none"></audio>
     </div>
     <div class="sdot" id="sdot" title="Server status"></div>
@@ -1535,6 +1543,11 @@ async function callDM(msg){
 function processDM(raw){
   if(!raw) return;
 
+  // Extract mood for ambient engine, then strip tag from all downstream processing
+  const _mood = _extractMood(raw);
+  if(_mood){ if(_ambEnabled){_ambInit();_ambSetMood(_mood);} }
+  raw = _stripMoodTag(raw);
+
   // HP tags
   for(const m of raw.matchAll(/\[HP:([+-]\d+)\]/g)){
     const d = parseInt(m[1]); applyHPDelta(d);
@@ -1948,6 +1961,7 @@ const MORSE_TAG_RE = /^(•–• •|–– •–|••–• •)\s*$/m;
 
 function _stripNoise(text){
   return text
+    .replace(/\[MOOD:\w+\]/g, '')               // mood tags (must strip before generic bracket strip)
     .replace(/\[[^\]]*\]/g, '')                 // all [brackets] incl scene tags
     .replace(/\*+([^*]*)\*+/g, '$1')           // **bold** / *italic*
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')    // emoji main plane
@@ -1960,6 +1974,9 @@ function _stripNoise(text){
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
+
+function _extractMood(t){const m=t.match(/\[MOOD:(\w+)\]/);return m?m[1]:null;}
+function _stripMoodTag(t){return t.replace(/\[MOOD:\w+\]/g,'').trim();}
 
 function parseMorseBlocks(text){
   const parts = text.split(MORSE_TAG_RE);
@@ -2155,6 +2172,45 @@ window.addEventListener('load', ()=>{
     loadRooms();  /* Gist ยังไม่ตั้งค่า → โหลดปกติ */
   }
 });
+
+// ═══ AMBIENT SOUND ENGINE ═══════════════════════════════════════
+let _ambCtx=null,_ambNodes=[],_ambMood=null,_ambEnabled=false;
+function _ambInit(){if(_ambCtx)return;_ambCtx=new(window.AudioContext||window.webkitAudioContext)();}
+function _ambStop(){_ambNodes.forEach(n=>{try{n.stop();}catch(e){}});_ambNodes=[];}
+function _ambSetMood(mood){
+  if(mood===_ambMood)return; _ambMood=mood; _ambStop();
+  if(!_ambCtx||!_ambEnabled)return;
+  const ctx=_ambCtx,master=ctx.createGain();
+  master.gain.setValueAtTime(0,ctx.currentTime);
+  master.gain.linearRampToValueAtTime(0.15,ctx.currentTime+2.5);
+  master.connect(ctx.destination); _ambNodes.push(master);
+  const osc=(f,t,v)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(master);o.start();_ambNodes.push(o,g);};
+  const lfo=(r,d)=>{const l=ctx.createOscillator(),lg=ctx.createGain();l.frequency.value=r;lg.gain.value=d;l.connect(lg);lg.connect(master.gain);l.start();_ambNodes.push(l,lg);};
+  if(mood==='peaceful'){[60,120,180].forEach((f,i)=>osc(f,'sine',0.3/(i+1)));lfo(0.12,0.06);}
+  else if(mood==='tense'){[[220,'sine'],[311,'sawtooth'],[440,'sine']].forEach(([f,t],i)=>osc(f,t,0.15/(i+1)));lfo(0.7,0.07);}
+  else if(mood==='combat'){[55,110].forEach((f,i)=>osc(f,'sawtooth',0.28/(i+1)));lfo(4,0.18);}
+  else if(mood==='mysterious'){[174,220,261].forEach((f,i)=>osc(f,'sine',0.22/(i+1)));lfo(0.04,0.05);}
+  else if(mood==='horror'){
+    [30,40,55].forEach((f,i)=>osc(f,'sine',0.35/(i+1)));
+    const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.025;
+    const ns=ctx.createBufferSource(),ng=ctx.createGain();
+    ns.buffer=buf;ns.loop=true;ng.gain.value=0.07;ns.connect(ng);ng.connect(master);ns.start();_ambNodes.push(ns,ng);
+  } else if(mood==='dramatic'){[87,110,131,174].forEach((f,i)=>osc(f,i%2?'triangle':'sine',0.28/(i+1)));lfo(0.08,0.04);}
+}
+function toggleAmb(){
+  _ambEnabled=!_ambEnabled;
+  const btn=document.getElementById('ambBtn');
+  if(_ambEnabled){
+    _ambInit();_ambCtx.resume();
+    if(btn){btn.textContent='🔊';btn.classList.add('active');}
+    if(_ambMood){const m=_ambMood;_ambMood=null;_ambSetMood(m);}
+  } else {
+    _ambStop();_ambMood=null;
+    if(btn){btn.textContent='🎵';btn.classList.remove('active');}
+  }
+}
+// ════════════════════════════════════════════════════════════════
 </script>
 </body>
 </html>
