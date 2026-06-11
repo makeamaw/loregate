@@ -845,6 +845,7 @@ html,body{
       <span class="hpill lv-pill" id="hpill-lv">Lv 1</span>
       <button class="hpill bag-pill" id="hpill-bag" onclick="toggleBag()">🎒 <span id="bag-ct">0</span></button>
       <button id="tts-toggle" onclick="ttsStopAll()" title="หยุดเสียง">⏹</button>
+      <audio id="tts-audio" preload="none"></audio>
     </div>
     <div class="sdot" id="sdot" title="Server status"></div>
   </div>
@@ -1873,13 +1874,14 @@ function addMsg(lbl, lblCls, body, bodyCls){
   const story = document.getElementById('story');
   const e = document.createElement('div'); e.className='sentry';
   const l = document.createElement('div'); l.className='slbl '+lblCls; l.textContent=lbl;
-  const b = document.createElement('div'); b.className='sbody '+bodyCls; b.textContent=body;
+  const b = document.createElement('div'); b.className='sbody '+bodyCls;
+  b.textContent = (bodyCls === 'dm') ? stripMorseTags(body) : body;
   if(bodyCls === 'dm'){
     const pb = document.createElement('button');
     pb.className = 'tts-play-btn';
     pb.title = 'เล่นเสียง';
     pb.textContent = '▶';
-    pb.dataset.text = body;
+    pb.dataset.raw = body; // keeps Morse tags for TTS parsing
     pb.onclick = function(){ playTTS(this); };
     b.appendChild(pb);
   }
@@ -1927,27 +1929,58 @@ setInterval(checkHealth, 12000);
 /* ════════════════════════════════════════════════
    TTS — Thai Text-to-Speech via edge-tts (segment queue)
 ════════════════════════════════════════════════ */
-let ttsQueue        = [];
-let ttsPlaying      = false;
-let ttsCurrentAudio = null;
-let ttsCurrentBtn   = null;
-let _audioUnlocked  = false;
+let ttsQueue      = [];
+let ttsPlaying    = false;
+let ttsCurrentBtn = null;
+let _audioUnlocked = false;
 const ttsVoice = { narrator: 'th-TH-PremwadeeNeural', male: 'th-TH-NiwatNeural', female: 'th-TH-PremwadeeNeural' };
+const ttsAudio = document.getElementById('tts-audio');
+ttsAudio.onended = () => drainTTSQueue();
+ttsAudio.onerror = () => drainTTSQueue();
 
-/* iOS Safari requires AudioContext.resume() within a gesture to allow audio.play() after async ops */
+/* Morse voice tag map — must match DM system prompt exactly */
+const MORSE_VOICE = { '•–• •': 'narrator', '–– •–': 'male', '••–• •': 'female' };
+const MORSE_TAG_RE = /^(•–• •|–– •–|••–• •)\s*$/m;
+
+function parseMorseBlocks(text){
+  /* Split text on Morse tag lines → [{text, voice}] segments */
+  const parts = text.split(MORSE_TAG_RE);
+  const segs = [];
+  let voice = 'narrator';
+  for(const part of parts){
+    const p = part.trim();
+    if(!p) continue;
+    if(MORSE_VOICE[p] !== undefined){ voice = MORSE_VOICE[p]; continue; }
+    const clean = p
+      .replace(/\[[A-Z_]+:[^\]]*\]/g, '')  // strip game tags
+      .replace(/\*+/g, '')                   // strip bold markers
+      .replace(/\n+/g, ' ')
+      .trim();
+    if(clean) segs.push({ text: clean, voice });
+  }
+  if(!segs.length){
+    const fallback = text.replace(/\[[A-Z_]+:[^\]]*\]/g, '').replace(/[•–]+/g, '').replace(/\s+/g, ' ').trim();
+    if(fallback) segs.push({ text: fallback, voice: 'narrator' });
+  }
+  return segs;
+}
+
+function stripMorseTags(text){
+  return text.replace(/(?:^|\n)(•–• •|–– •–|••–• •)[ \t]*(?=\n|$)/gm, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/* iOS: call AudioContext.resume() synchronously in gesture to unlock HTMLAudioElement */
 function _unlockAudio(){
   if(_audioUnlocked) return;
   _audioUnlocked = true;
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    ctx.resume();
-  }catch(e){}
+  try{ new (window.AudioContext || window.webkitAudioContext)().resume(); }catch(e){}
+  /* Also "touch" the audio element within the gesture so iOS marks it user-activated */
+  ttsAudio.load();
 }
 
 function ttsStopAll(){
-  ttsQueue = [];
-  ttsPlaying = false;
-  if(ttsCurrentAudio){ ttsCurrentAudio.pause(); ttsCurrentAudio = null; }
+  ttsQueue = []; ttsPlaying = false;
+  ttsAudio.pause(); ttsAudio.src = '';
   if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
 }
 
@@ -1955,7 +1988,6 @@ function drainTTSQueue(){
   if(!ttsQueue.length){
     ttsPlaying = false;
     if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
-    ttsCurrentAudio = null;
     return;
   }
   ttsPlaying = true;
@@ -1963,35 +1995,22 @@ function drainTTSQueue(){
   const voice = ttsVoice[seg.voice] || ttsVoice.narrator;
   const srv   = SERVER_URL || '';
   if(!srv){ ttsStopAll(); return; }
-  const audio = new Audio(`${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`);
-  ttsCurrentAudio = audio;
-  audio.onended = drainTTSQueue;
-  audio.onerror = drainTTSQueue;
-  audio.play().catch(drainTTSQueue);
+  ttsAudio.src = `${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`;
+  ttsAudio.load();
+  ttsAudio.play().catch(() => drainTTSQueue());
 }
 
-async function playTTS(btn){
-  _unlockAudio(); // must be called synchronously within gesture — unlocks iOS audio
-  // Toggle: if this button is already playing → stop
-  if(ttsCurrentBtn === btn){
-    ttsStopAll();
-    return;
-  }
-  // Stop any existing playback
+function playTTS(btn){
+  _unlockAudio(); // synchronous — must be first, within gesture context
+  if(ttsCurrentBtn === btn){ ttsStopAll(); return; }
   ttsStopAll();
-  const text = btn.dataset.text;
-  if(!text) return;
-  const srv = SERVER_URL || '';
-  if(!srv) return;
+  const raw = btn.dataset.raw || btn.dataset.text;
+  if(!raw) return;
+  if(!(SERVER_URL || '')) return;
   ttsCurrentBtn = btn;
   btn.textContent = '⏹';
-  try {
-    const r    = await fetch(`${srv}/tts/parse?text=${encodeURIComponent(text)}`);
-    const data = await r.json();
-    ttsQueue.push(...(data.segments || [{text, voice:'narrator'}]));
-  } catch(e){
-    ttsQueue = [{text, voice:'narrator'}];
-  }
+  const segs = parseMorseBlocks(raw);
+  ttsQueue.push(...segs);
   drainTTSQueue();
 }
 
