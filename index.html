@@ -1942,6 +1942,18 @@ ttsAudio.onerror = () => drainTTSQueue();
 const MORSE_VOICE = { '•–• •': 'narrator', '–– •–': 'male', '••–• •': 'female' };
 const MORSE_TAG_RE = /^(•–• •|–– •–|••–• •)\s*$/m;
 
+function _stripNoise(text){
+  return text
+    .replace(/\[[A-Z_]+:[^\]]*\]/g, '')           // game tags [HP:], [ROLL:], etc.
+    .replace(/\*+([^*]*)\*+/g, '$1')              // **bold** → text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')       // emoji (main plane)
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')          // misc symbols & dingbats
+    .replace(/[︀-️]/g, '')               // variation selectors
+    .replace(/\n+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function parseMorseBlocks(text){
   /* Split text on Morse tag lines → [{text, voice}] segments */
   const parts = text.split(MORSE_TAG_RE);
@@ -1951,15 +1963,11 @@ function parseMorseBlocks(text){
     const p = part.trim();
     if(!p) continue;
     if(MORSE_VOICE[p] !== undefined){ voice = MORSE_VOICE[p]; continue; }
-    const clean = p
-      .replace(/\[[A-Z_]+:[^\]]*\]/g, '')  // strip game tags
-      .replace(/\*+/g, '')                   // strip bold markers
-      .replace(/\n+/g, ' ')
-      .trim();
+    const clean = _stripNoise(p);
     if(clean) segs.push({ text: clean, voice });
   }
   if(!segs.length){
-    const fallback = text.replace(/\[[A-Z_]+:[^\]]*\]/g, '').replace(/[•–]+/g, '').replace(/\s+/g, ' ').trim();
+    const fallback = _stripNoise(text.replace(/[•–]+/g, ''));
     if(fallback) segs.push({ text: fallback, voice: 'narrator' });
   }
   return segs;
@@ -1979,39 +1987,52 @@ function _unlockAudio(){
 }
 
 function ttsStopAll(){
+  // Revoke pending blob URLs
+  ttsQueue.forEach(u => { try{ URL.revokeObjectURL(u); }catch(e){} });
   ttsQueue = []; ttsPlaying = false;
   ttsAudio.pause(); ttsAudio.src = '';
   if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
 }
 
 function drainTTSQueue(){
+  /* ttsQueue holds pre-fetched blob: URLs — play sequentially, no network wait */
   if(!ttsQueue.length){
     ttsPlaying = false;
     if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
     return;
   }
   ttsPlaying = true;
-  const seg   = ttsQueue.shift();
-  const voice = ttsVoice[seg.voice] || ttsVoice.narrator;
-  const srv   = SERVER_URL || '';
-  if(!srv){ ttsStopAll(); return; }
-  ttsAudio.src = `${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`;
-  ttsAudio.load();
-  ttsAudio.play().catch(() => drainTTSQueue());
+  const url = ttsQueue.shift();
+  ttsAudio.onended = () => { try{ URL.revokeObjectURL(url); }catch(e){} drainTTSQueue(); };
+  ttsAudio.onerror = () => { try{ URL.revokeObjectURL(url); }catch(e){} drainTTSQueue(); };
+  ttsAudio.src = url;
+  ttsAudio.play().catch(() => { try{ URL.revokeObjectURL(url); }catch(e){} drainTTSQueue(); });
 }
 
 function playTTS(btn){
-  _unlockAudio(); // synchronous — must be first, within gesture context
+  _unlockAudio(); // must be synchronous within gesture — unlocks iOS audio
   if(ttsCurrentBtn === btn){ ttsStopAll(); return; }
   ttsStopAll();
   const raw = btn.dataset.raw || btn.dataset.text;
   if(!raw) return;
-  if(!(SERVER_URL || '')) return;
+  const srv = SERVER_URL || '';
+  if(!srv) return;
   ttsCurrentBtn = btn;
   btn.textContent = '⏹';
   const segs = parseMorseBlocks(raw);
-  ttsQueue.push(...segs);
-  drainTTSQueue();
+  if(!segs.length){ ttsStopAll(); return; }
+  /* Pre-fetch ALL segments as Blobs in parallel → queue ready before playback starts → no gap */
+  Promise.all(segs.map(seg => {
+    const voice = ttsVoice[seg.voice] || ttsVoice.narrator;
+    return fetch(`${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`)
+      .then(r => r.blob()).then(b => URL.createObjectURL(b)).catch(() => null);
+  })).then(urls => {
+    if(ttsCurrentBtn !== btn) return; // stopped while fetching
+    const valid = urls.filter(Boolean);
+    if(!valid.length){ ttsStopAll(); return; }
+    ttsQueue.push(...valid);
+    drainTTSQueue();
+  }).catch(() => ttsStopAll());
 }
 
 const fc = document.getElementById('fx-canvas');
