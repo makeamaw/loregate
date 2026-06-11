@@ -796,8 +796,9 @@ html,body{
         <select id="dm-openai-model">
           <option value="gpt-4o-mini">gpt-4o-mini (เร็ว, ประหยัด)</option>
           <option value="gpt-4o">gpt-4o (ฉลาดกว่า)</option>
+          <option value="gpt-4.1-mini">gpt-4.1-mini (ใหม่)</option>
+          <option value="gpt-4.1">gpt-4.1 (ฉลาดสุด)</option>
         </select>
-        <input type="password" id="dm-openai-key" placeholder="OpenAI API Key (sk-...)">
       </div>
       <button class="settings-save-btn" onclick="saveSettings()">💾 บันทึก</button>
     </div>
@@ -2281,9 +2282,7 @@ async function openSettings(){
         const radios = document.querySelectorAll('input[name="dm-model"]');
         radios.forEach(rd => { rd.checked = (rd.value === (s.dm_model || 'claude')); });
         const selModel = document.getElementById('dm-openai-model');
-        const inpKey   = document.getElementById('dm-openai-key');
         if(selModel) selModel.value = s.openai_model || 'gpt-4o-mini';
-        if(inpKey && s.openai_key) inpKey.value = s.openai_key;
         _showHideOpenAIOpts(s.dm_model === 'openai');
       }
     }catch(_){}
@@ -2305,12 +2304,11 @@ async function saveSettings(){
   const sel   = document.querySelector('input[name="dm-model"]:checked');
   const model = sel ? sel.value : 'claude';
   const oModel = (document.getElementById('dm-openai-model') || {}).value || 'gpt-4o-mini';
-  const oKey   = (document.getElementById('dm-openai-key')   || {}).value || '';
   if(!SERVER_URL){ showToast('ยังไม่ได้เชื่อมต่อ server','fail'); return; }
   try{
     const r = await fetch(SERVER_URL+'/settings',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({dm_model:model, openai_model:oModel, openai_key:oKey}),
+      body: JSON.stringify({dm_model:model, openai_model:oModel}),
     });
     if(!r.ok) throw new Error('HTTP '+r.status);
     showToast('✅ บันทึกแล้ว — DM: '+(model==='openai'?'OpenAI GPT':'Claude'),'heal');
