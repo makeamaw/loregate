@@ -661,6 +661,38 @@ html,body{
   #qte-face-inner  { font-size:clamp(4rem,10vw,5.5rem); }
 }
 
+/* ── DM Model Selector ──────────────────────────────────── */
+.dm-model-opts{display:flex;gap:8px;flex-wrap:wrap;}
+.dm-radio-lbl{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 14px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg3);
+  font-size:.85rem;color:var(--text);
+  transition:border-color .15s,background .15s,color .15s;
+  user-select:none;
+}
+.dm-radio-lbl input{position:absolute;opacity:0;width:0;height:0;}
+.dm-radio-lbl:has(input:checked){
+  border-color:var(--gold);background:var(--gold-glow);color:var(--gold2);
+}
+.dm-openai-opts{
+  margin-top:10px;display:flex;flex-direction:column;gap:8px;
+}
+.dm-openai-opts select,.dm-openai-opts input{
+  width:100%;background:var(--input-bg);border:1px solid var(--border2);
+  border-radius:10px;padding:9px 12px;color:var(--text);
+  font-size:.85rem;outline:none;
+  -webkit-appearance:none;appearance:none;
+}
+.dm-openai-opts select:focus,.dm-openai-opts input:focus{border-color:var(--gold);}
+.settings-save-btn{
+  width:100%;margin-top:14px;padding:11px;
+  background:var(--gold);border:none;border-radius:var(--radius);
+  color:#1a1200;font-size:.9rem;font-weight:600;cursor:pointer;
+  transition:opacity .15s;
+}
+.settings-save-btn:hover{opacity:.88;}
+
 /* ── Settings Sheet ─────────────────────────────────────── */
 #settings-bg{
   position:fixed;inset:0;z-index:900;
@@ -746,6 +778,28 @@ html,body{
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
+    </div>
+    <!-- DM Model Section -->
+    <div style="padding:14px 0 0;">
+      <div class="settings-title" style="margin-bottom:8px;">DM Model</div>
+      <div class="dm-model-opts">
+        <label class="dm-radio-lbl">
+          <input type="radio" name="dm-model" value="claude" checked onchange="onDMModelChange()">
+          🤖 Claude Sonnet 4.6
+        </label>
+        <label class="dm-radio-lbl">
+          <input type="radio" name="dm-model" value="openai" onchange="onDMModelChange()">
+          🟢 OpenAI GPT
+        </label>
+      </div>
+      <div id="dm-openai-opts" class="dm-openai-opts" style="display:none;">
+        <select id="dm-openai-model">
+          <option value="gpt-4o-mini">gpt-4o-mini (เร็ว, ประหยัด)</option>
+          <option value="gpt-4o">gpt-4o (ฉลาดกว่า)</option>
+        </select>
+        <input type="password" id="dm-openai-key" placeholder="OpenAI API Key (sk-...)">
+      </div>
+      <button class="settings-save-btn" onclick="saveSettings()">💾 บันทึก</button>
     </div>
   </div>
 </div>
@@ -2212,16 +2266,56 @@ window.addEventListener('resize', rfx);
 /* ════════════════════════════════════════════════
    SETTINGS
 ════════════════════════════════════════════════ */
-function openSettings(){
+async function openSettings(){
   const bg = document.getElementById('settings-bg');
   if(bg) bg.classList.add('open');
   const isLight = document.documentElement.classList.contains('light');
   const tog = document.getElementById('theme-toggle');
   if(tog) tog.checked = isLight;
+  // Load DM model settings from server
+  if(SERVER_URL){
+    try{
+      const r = await fetch(SERVER_URL+'/settings', {signal: AbortSignal.timeout(4000)});
+      if(r.ok){
+        const s = await r.json();
+        const radios = document.querySelectorAll('input[name="dm-model"]');
+        radios.forEach(rd => { rd.checked = (rd.value === (s.dm_model || 'claude')); });
+        const selModel = document.getElementById('dm-openai-model');
+        const inpKey   = document.getElementById('dm-openai-key');
+        if(selModel) selModel.value = s.openai_model || 'gpt-4o-mini';
+        if(inpKey && s.openai_key) inpKey.value = s.openai_key;
+        _showHideOpenAIOpts(s.dm_model === 'openai');
+      }
+    }catch(_){}
+  }
 }
 function closeSettings(){
   const bg = document.getElementById('settings-bg');
   if(bg) bg.classList.remove('open');
+}
+function _showHideOpenAIOpts(show){
+  const el = document.getElementById('dm-openai-opts');
+  if(el) el.style.display = show ? 'flex' : 'none';
+}
+function onDMModelChange(){
+  const sel = document.querySelector('input[name="dm-model"]:checked');
+  _showHideOpenAIOpts(sel && sel.value === 'openai');
+}
+async function saveSettings(){
+  const sel   = document.querySelector('input[name="dm-model"]:checked');
+  const model = sel ? sel.value : 'claude';
+  const oModel = (document.getElementById('dm-openai-model') || {}).value || 'gpt-4o-mini';
+  const oKey   = (document.getElementById('dm-openai-key')   || {}).value || '';
+  if(!SERVER_URL){ showToast('ยังไม่ได้เชื่อมต่อ server','fail'); return; }
+  try{
+    const r = await fetch(SERVER_URL+'/settings',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({dm_model:model, openai_model:oModel, openai_key:oKey}),
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    showToast('✅ บันทึกแล้ว — DM: '+(model==='openai'?'OpenAI GPT':'Claude'),'heal');
+    closeSettings();
+  }catch(e){ showToast('บันทึกไม่ได้: '+e.message,'fail'); }
 }
 function toggleTheme(isLight){
   if(isLight){
