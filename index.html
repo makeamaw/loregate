@@ -2375,23 +2375,26 @@ window.addEventListener('load', ()=>{
     if(l.style.display !== 'none' && !l.classList.contains('fade-out')) loadRooms();
   }, 30000);
 
-  /* ── Auto-detect server URL (uses global discoverServer) ── */
-
+  /* ── Always fetch Gist on load — จะได้ tunnel URL ล่าสุดเสมอ
+       แม้ sessionStorage มี URL เก่า ก็ update ให้อัตโนมัติ ── */
   if (!saved) {
     const sEl = document.getElementById('server-url-status');
     if (sEl) { sEl.textContent = '🔍 กำลังค้นหา...'; sEl.style.color = 'var(--gold2)'; }
-    discoverServer().then(url => {
-      if (url) {
-        const inp = document.getElementById('server-url-input');
-        if (inp) inp.value = url;
-        applyServerUrl(url);
-      } else {
-        loadRooms();
-      }
-    });
-  } else {
-    loadRooms();
   }
+  fetch(_GIST_URL + "?t=" + Date.now(), { signal: AbortSignal.timeout(5000) })
+    .then(r => r.text())
+    .then(u => {
+      u = u.trim();
+      if (u && u.startsWith('http') && u !== 'none' && u !== SERVER_URL) {
+        /* Gist มี URL ใหม่ → อัปเดตทันที */
+        const inp2 = document.getElementById('server-url-input');
+        if (inp2) inp2.value = u;
+        applyServerUrl(u);   /* applyServerUrl เรียก loadRooms */
+      } else {
+        loadRooms();         /* URL เดิม/none → โหลดปกติ */
+      }
+    })
+    .catch(() => loadRooms()); /* Gist ล้มเหลว → โหลดปกติ */
 });
 
 // ═══ AMBIENT SOUND ENGINE ═══════════════════════════════════════
