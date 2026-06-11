@@ -1527,6 +1527,112 @@ async function callDM(msg){
   }catch(e){ return {error:e.message, dm_response:''}; }
 }
 
+/* ════════════════════════════════════════════════
+   ADD MESSAGE — appends a chat bubble to #story
+════════════════════════════════════════════════ */
+function addMsg(label, role, text, cssRole){
+  const story = document.getElementById('story');
+  if(!story) return;
+  const cr = cssRole || role;
+  const wrap = document.createElement('div');
+  wrap.className = 'sentry';
+  const lbl = document.createElement('div');
+  lbl.className = 'slbl ' + cr;
+  lbl.textContent = label;
+  wrap.appendChild(lbl);
+  const body = document.createElement('div');
+  body.className = 'sbody ' + cr;
+  body.textContent = text;
+  wrap.appendChild(body);
+  if(cr === 'dm'){
+    const playBtn = document.createElement('button');
+    playBtn.className = 'tts-play-btn';
+    playBtn.textContent = '▶';
+    playBtn.title = 'ฟังข้อความนี้';
+    playBtn.dataset.text = text;
+    playBtn.onclick = function(){ playTTSBtn(this); };
+    body.appendChild(playBtn);
+  }
+  story.appendChild(wrap);
+  return wrap;
+}
+
+function addTyping(){
+  const story = document.getElementById('story');
+  const wrap = document.createElement('div');
+  wrap.className = 'sentry';
+  const lbl = document.createElement('div');
+  lbl.className = 'slbl dm'; lbl.textContent = '🎲 DM';
+  const body = document.createElement('div');
+  body.className = 'sbody dm';
+  body.innerHTML = '<div class="tdots"><span></span><span></span><span></span></div>';
+  wrap.appendChild(lbl); wrap.appendChild(body);
+  story.appendChild(wrap);
+  scrollDown();
+  return wrap;
+}
+
+function scrollDown(){
+  const s = document.getElementById('story');
+  if(s) s.scrollTop = s.scrollHeight;
+}
+
+/* ════════════════════════════════════════════════
+   TTS — edge-tts via /tts/parse + segment queue
+════════════════════════════════════════════════ */
+let ttsEnabled  = false;
+let ttsQueue    = [];
+let ttsPlaying  = false;
+const ttsVoices = {
+  narrator: 'th-TH-PremwadeeNeural',
+  female:   'th-TH-PremwadeeNeural',
+  male:     'th-TH-NiwatNeural',
+};
+
+function toggleTTS(){
+  ttsEnabled = !ttsEnabled;
+  const btn = document.getElementById('tts-toggle');
+  if(btn) btn.textContent = ttsEnabled ? '🔊' : '🔇';
+  if(!ttsEnabled){ ttsQueue = []; ttsPlaying = false; }
+}
+
+function setTTSVoice(gender){ /* future: swap narrator voice */ }
+
+async function playTTSSegments(text){
+  const srv = SERVER_URL || '';
+  if(!srv) return;
+  try{
+    const r = await fetch(`${srv}/tts/parse?text=${encodeURIComponent(text)}`);
+    if(!r.ok) throw new Error('tts/parse ' + r.status);
+    const data = await r.json();
+    ttsQueue.push(...(data.segments || [{text, voice:'narrator'}]));
+    if(!ttsPlaying) drainTTSQueue();
+  }catch(e){ console.warn('TTS parse error', e); }
+}
+
+function drainTTSQueue(){
+  if(!ttsQueue.length){ ttsPlaying = false; return; }
+  ttsPlaying = true;
+  const seg   = ttsQueue.shift();
+  const voice = ttsVoices[seg.voice] || ttsVoices.narrator;
+  const srv   = SERVER_URL || '';
+  const audio = new Audio(`${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`);
+  audio.onended = drainTTSQueue;
+  audio.onerror = drainTTSQueue;
+  audio.play().catch(drainTTSQueue);
+}
+
+function playTTSBtn(btn){
+  ttsQueue = []; ttsPlaying = false;
+  playTTSSegments(btn.dataset.text);
+}
+
+function autoPlayTTS(text){
+  if(!ttsEnabled) return;
+  ttsQueue = []; ttsPlaying = false;
+  playTTSSegments(text);
+}
+
 function processDM(raw){
   if(!raw) return;
 
