@@ -1977,13 +1977,16 @@ function stripMorseTags(text){
   return text.replace(/(?:^|\n)(•–• •|–– •–|••–• •)[ \t]*(?=\n|$)/gm, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-/* iOS: call AudioContext.resume() synchronously in gesture to unlock HTMLAudioElement */
+/* Minimal silent MP3 — played immediately in gesture to user-activate ttsAudio on iOS */
+const _SILENCE = 'data:audio/mpeg;base64,/+MYxAAAAANIAAAAAExBTUUzLjk4LjIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
 function _unlockAudio(){
   if(_audioUnlocked) return;
   _audioUnlocked = true;
-  try{ new (window.AudioContext || window.webkitAudioContext)().resume(); }catch(e){}
-  /* Also "touch" the audio element within the gesture so iOS marks it user-activated */
-  ttsAudio.load();
+  /* Play silence synchronously in gesture — iOS marks ttsAudio as user-activated.
+     Subsequent play() calls on the SAME element are then allowed even after async ops. */
+  ttsAudio.src = _SILENCE;
+  ttsAudio.play().catch(() => {});
 }
 
 function ttsStopAll(){
