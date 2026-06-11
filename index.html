@@ -2011,26 +2011,14 @@ function playTTS(btn){
   btn.textContent = '⏹';
   const srv = SERVER_URL;
 
-  /* PIPELINE: fetch seg[idx] as blob, play it, then fetch seg[idx+1] while playing.
-     — Only 1 server request at a time → no server overload
-     — Pre-fetch during playback → no long gaps between segments */
-  showToast(`🔊 ${segs.length} segs`, '');
-
   function doFetch(idx){
     if(!ttsCurrentBtn || idx >= segs.length) return Promise.resolve(null);
     const {text, voice} = segs[idx];
     const v = ttsVoice[voice] || ttsVoice.narrator;
-    const shortText = text.slice(0,20).replace(/\n/g,' ');
-    showToast(`fetch[${idx}] ${voice}: "${shortText}…"`, '');
     return fetch(`${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(text)}`)
-      .then(r => {
-        if(!r.ok){ showToast(`fetch[${idx}] HTTP ${r.status} FAIL`, 'red'); throw 0; }
-        const ct = r.headers.get('content-type') || '?';
-        showToast(`fetch[${idx}] ok ct=${ct.slice(0,20)}`, '');
-        return r.blob();
-      })
+      .then(r => { if(!r.ok) throw 0; return r.blob(); })
       .then(b => URL.createObjectURL(b))
-      .catch(e => { showToast(`fetch[${idx}] ERR:${e&&(e.name||e.message||String(e))||'?'} len=${text.length}`, 'red'); return null; });
+      .catch(() => null);
   }
 
   function step(idx, urlPromise){
@@ -2043,39 +2031,30 @@ function playTTS(btn){
     ttsPlaying = true;
     urlPromise.then(url => {
       if(!ttsCurrentBtn) return;
-      if(!url){ showToast(`step[${idx}] url=null SKIP`, 'red'); step(idx+1, doFetch(idx+1)); return; }
-
-      showToast(`step[${idx}] playing…`, '');
+      if(!url){ step(idx+1, doFetch(idx+1)); return; }
       const nextP = doFetch(idx+1);
-
-      function advance(reason){
-        showToast(`step[${idx}] advance(${reason})`, reason==='err'?'red':'');
+      function advance(){
         try{URL.revokeObjectURL(url);}catch(e){}
         step(idx+1, nextP);
       }
-      ttsAudio.onended = () => advance('ended');
-      ttsAudio.onerror = () => advance('err');
+      ttsAudio.onended = advance;
+      ttsAudio.onerror = advance;
       ttsAudio.src = url;
-      ttsAudio.play()
-        .then(() => showToast(`step[${idx}] play() resolved`, ''))
-        .catch(e => { showToast(`step[${idx}] play() rejected: ${e&&e.name}`, 'red'); advance('reject'); });
+      ttsAudio.play().catch(() => advance());
     });
   }
 
   const firstFetch = doFetch(0);
   let silenceHandled = false;
-  function onSilenceDone(tag){
+  function onSilenceDone(){
     if(silenceHandled) return;
     silenceHandled = true;
-    showToast(`silence ${tag}`, tag==='onerror'?'red':'');
     step(0, firstFetch);
   }
-  ttsAudio.onerror = () => onSilenceDone('onerror');
-  ttsAudio.onended = () => onSilenceDone('ended');
+  ttsAudio.onerror = onSilenceDone;
+  ttsAudio.onended = onSilenceDone;
   ttsAudio.src = _SILENCE;
-  ttsAudio.play()
-    .then(() => showToast('silence play() ok', ''))
-    .catch(e => { showToast(`silence play() fail: ${e&&e.name}`, 'red'); onSilenceDone('play-fail'); });
+  ttsAudio.play().catch(() => onSilenceDone());
 }
 
 const fc = document.getElementById('fx-canvas');
