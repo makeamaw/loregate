@@ -1927,11 +1927,22 @@ setInterval(checkHealth, 12000);
 /* ════════════════════════════════════════════════
    TTS — Thai Text-to-Speech via edge-tts (segment queue)
 ════════════════════════════════════════════════ */
-let ttsQueue      = [];
-let ttsPlaying    = false;
+let ttsQueue        = [];
+let ttsPlaying      = false;
 let ttsCurrentAudio = null;
 let ttsCurrentBtn   = null;
+let _audioUnlocked  = false;
 const ttsVoice = { narrator: 'th-TH-PremwadeeNeural', male: 'th-TH-NiwatNeural', female: 'th-TH-PremwadeeNeural' };
+
+/* iOS Safari requires AudioContext.resume() within a gesture to allow audio.play() after async ops */
+function _unlockAudio(){
+  if(_audioUnlocked) return;
+  _audioUnlocked = true;
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx.resume();
+  }catch(e){}
+}
 
 function ttsStopAll(){
   ttsQueue = [];
@@ -1960,6 +1971,7 @@ function drainTTSQueue(){
 }
 
 async function playTTS(btn){
+  _unlockAudio(); // must be called synchronously within gesture — unlocks iOS audio
   // Toggle: if this button is already playing → stop
   if(ttsCurrentBtn === btn){
     ttsStopAll();
