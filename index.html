@@ -1823,6 +1823,20 @@ function esc(s){
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+const _GIST_URL = "https://gist.githubusercontent.com/makeamaw/76f8b3ae3e6bc234d8715f75bb89dbb8/raw/server_url.txt";
+async function discoverServer() {
+  try {
+    const r = await fetch("http://localhost:8765/health", { signal: AbortSignal.timeout(1500) });
+    if (r.ok) return "http://localhost:8765";
+  } catch (_) {}
+  try {
+    const r = await fetch(_GIST_URL + "?t=" + Date.now(), { signal: AbortSignal.timeout(5000) });
+    const url = (await r.text()).trim();
+    if (url && url !== "none" && url.startsWith("http")) return url;
+  } catch (_) {}
+  return null;
+}
+
 let _loadRetry = 0;
 async function loadRooms(){
   const m = document.getElementById('lobby-msg');
@@ -1850,11 +1864,22 @@ async function loadRooms(){
       renderRooms([]);
       setTimeout(loadRooms, wait * 1000);
     } else {
-      m.textContent='⚠️ Server offline — เปิด start_auto.pyw ก่อนเล่น';
+      m.textContent='⚠️ Server offline — กำลังลองใหม่อัตโนมัติ...';
       m.className='err';
       _setPillOffline();
       _loadRetry = 0;
       renderRooms([]);
+      /* Re-discover every 30s — picks up tunnel URL when server starts later */
+      setTimeout(async () => {
+        const fresh = await discoverServer();
+        if (fresh) {
+          const inp = document.getElementById('server-url-input');
+          if (inp) inp.value = fresh;
+          applyServerUrl(fresh);
+        } else {
+          loadRooms(); /* will retry again */
+        }
+      }, 30000);
     }
   }
 }
@@ -2350,24 +2375,7 @@ window.addEventListener('load', ()=>{
     if(l.style.display !== 'none' && !l.classList.contains('fade-out')) loadRooms();
   }, 30000);
 
-  /* ── Auto-detect server URL ─────────────────────────────────────
-     1. ลอง localhost ก่อน (เล่นบน PC เอง)
-     2. ดึง public URL จาก Gist (ผ่าน Cloudflare Tunnel — สำหรับมือถือ)
-  ────────────────────────────────────────────────────────────── */
-  const GIST_URL = "https://gist.githubusercontent.com/makeamaw/76f8b3ae3e6bc234d8715f75bb89dbb8/raw/server_url.txt";
-
-  async function discoverServer() {
-    try {
-      const r = await fetch("http://localhost:8765/health", { signal: AbortSignal.timeout(1500) });
-      if (r.ok) return "http://localhost:8765";
-    } catch (_) {}
-    try {
-      const r = await fetch(GIST_URL + "?t=" + Date.now(), { signal: AbortSignal.timeout(5000) });
-      const url = (await r.text()).trim();
-      if (url && url !== "none" && url.startsWith("http")) return url;
-    } catch (_) {}
-    return null;
-  }
+  /* ── Auto-detect server URL (uses global discoverServer) ── */
 
   if (!saved) {
     const sEl = document.getElementById('server-url-status');
