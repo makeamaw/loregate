@@ -967,6 +967,11 @@ function resetChoices(){
     b.className='qbtn'; b.textContent=label;
     b.onclick=()=>qf(text); q.appendChild(b);
   });
+  // Manual dice button — always visible; lets player roll even if DM forgot [ROLL:...] tag
+  const db = document.createElement('button');
+  db.className = 'qbtn'; db.textContent = '🎲 ทอยเต๋า';
+  db.onclick = () => { if(!qteOpen) showQTE('d20', 'Manual Roll'); };
+  q.appendChild(db);
 }
 
 function renderChoices(choices){
@@ -1986,31 +1991,16 @@ function _unlockAudio(){
   try{ new (window.AudioContext || window.webkitAudioContext)().resume(); }catch(e){}
 }
 
+let _ttsBlobUrls = [];
+
 function ttsStopAll(){
   ttsSegments = []; ttsSegIdx = 0; ttsPlaying = false;
   ttsAudio.pause();
   ttsAudio.onended = null; ttsAudio.onerror = null;
   ttsAudio.src = '';
+  _ttsBlobUrls.forEach(u => { try{ URL.revokeObjectURL(u); }catch(e){} });
+  _ttsBlobUrls = [];
   if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
-}
-
-function _playSeg(idx){
-  /* Play segment at idx, chain to next via onended — iOS-safe */
-  if(!ttsCurrentBtn || idx >= ttsSegments.length){
-    ttsPlaying = false;
-    if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
-    return;
-  }
-  ttsPlaying = true;
-  const {text, voice} = ttsSegments[idx];
-  const v   = ttsVoice[voice] || ttsVoice.narrator;
-  const srv = SERVER_URL || '';
-  if(!srv){ ttsStopAll(); return; }
-  ttsAudio.onended = () => _playSeg(idx + 1);
-  ttsAudio.onerror = () => _playSeg(idx + 1);
-  ttsAudio.src = `${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(text)}`;
-  ttsAudio.load();
-  ttsAudio.play().catch(() => { /* iOS may reject while buffering — onerror handles real failures */ });
 }
 
 function playTTS(btn){
@@ -2024,12 +2014,48 @@ function playTTS(btn){
   ttsCurrentBtn = btn;
   btn.textContent = '⏹';
   ttsSegments = segs;
-  /* iOS: play valid silence synchronously in gesture to unlock audio session.
-     onended/onerror then chain to real segments — iOS allows play() from onended. */
-  ttsAudio.onended = () => _playSeg(0);
-  ttsAudio.onerror = () => _playSeg(0);
+  const srv = SERVER_URL;
+
+  /* Pre-fetch ALL segments as Blobs in parallel — iOS gets fully-loaded data, no streaming gap */
+  const blobPromises = segs.map(seg => {
+    const v = ttsVoice[seg.voice] || ttsVoice.narrator;
+    return fetch(`${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(seg.text)}`)
+      .then(r => { if(!r.ok) throw 0; return r.blob(); })
+      .then(b => URL.createObjectURL(b))
+      .catch(() => null);
+  });
+
+  /* Play silence NOW (in gesture) → iOS marks ttsAudio as user-activated permanently.
+     When silence ends, blobs are usually ready; if not, we wait (still fine — element is activated). */
+  ttsAudio.onerror = () => ttsStopAll();
+  ttsAudio.onended = () => {
+    if(ttsCurrentBtn !== btn) return;
+    Promise.all(blobPromises).then(urls => {
+      if(ttsCurrentBtn !== btn){ urls.forEach(u=>u&&URL.revokeObjectURL(u)); return; }
+      const valid = urls.filter(Boolean);
+      if(!valid.length){ ttsStopAll(); return; }
+      _ttsBlobUrls = valid;
+      let i = 0;
+      function next(){
+        if(!ttsCurrentBtn || i >= valid.length){
+          _ttsBlobUrls.forEach(u=>{ try{URL.revokeObjectURL(u);}catch(e){} });
+          _ttsBlobUrls = [];
+          ttsPlaying = false;
+          if(ttsCurrentBtn){ ttsCurrentBtn.textContent='▶'; ttsCurrentBtn=null; }
+          return;
+        }
+        ttsPlaying = true;
+        const url = valid[i++];
+        ttsAudio.onended = next;
+        ttsAudio.onerror = next; // skip a failed blob, continue
+        ttsAudio.src = url;
+        ttsAudio.play().catch(() => {}); // element already activated — should resolve
+      }
+      next();
+    }).catch(() => ttsStopAll());
+  };
   ttsAudio.src = _SILENCE;
-  ttsAudio.play().catch(() => _playSeg(0));
+  ttsAudio.play().catch(() => ttsStopAll());
 }
 
 const fc = document.getElementById('fx-canvas');
