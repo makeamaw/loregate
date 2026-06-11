@@ -2009,7 +2009,8 @@ function _playSeg(idx){
   ttsAudio.onended = () => _playSeg(idx + 1);
   ttsAudio.onerror = () => _playSeg(idx + 1);
   ttsAudio.src = `${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(text)}`;
-  ttsAudio.play().catch(() => _playSeg(idx + 1));
+  ttsAudio.load();
+  ttsAudio.play().catch(() => { /* iOS may reject while buffering — onerror handles real failures */ });
 }
 
 function playTTS(btn){
