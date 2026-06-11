@@ -844,7 +844,7 @@ html,body{
     <div class="hdr-pills">
       <span class="hpill lv-pill" id="hpill-lv">Lv 1</span>
       <button class="hpill bag-pill" id="hpill-bag" onclick="toggleBag()">🎒 <span id="bag-ct">0</span></button>
-      <button id="tts-toggle" onclick="toggleTTS()" title="เปิด/ปิดเสียงพากย์">🔇</button>
+      <button id="tts-toggle" onclick="ttsStopAll()" title="หยุดเสียง">⏹</button>
     </div>
     <div class="sdot" id="sdot" title="Server status"></div>
   </div>
@@ -1398,7 +1398,7 @@ function syncPlayerCard(){
   }
   updateStripMini();
   // TTS voice: auto-select based on player gender
-  if(p.gender) setTTSVoice(p.gender);
+  // voice is always per-segment (narrator/male/female from /tts/parse)
 }
 
 function toggleBag(){
@@ -1565,7 +1565,7 @@ function processDM(raw){
     .trim();
   if(display){
     addMsg('🎲 DM', 'dm', display, 'dm');
-    autoPlayTTS(display);
+    // autoplay removed — use ▶ button to play manually
   }
 }
 
@@ -1927,48 +1927,52 @@ setInterval(checkHealth, 12000);
 /* ════════════════════════════════════════════════
    TTS — Thai Text-to-Speech via edge-tts (segment queue)
 ════════════════════════════════════════════════ */
-let ttsEnabled = false;
-let ttsQueue   = [];
-let ttsPlaying = false;
-let ttsVoice   = { narrator: 'th-TH-PremwadeeNeural', male: 'th-TH-NiwatNeural', female: 'th-TH-PremwadeeNeural' };
+let ttsQueue      = [];
+let ttsPlaying    = false;
+let ttsCurrentAudio = null;
+let ttsCurrentBtn   = null;
+const ttsVoice = { narrator: 'th-TH-PremwadeeNeural', male: 'th-TH-NiwatNeural', female: 'th-TH-PremwadeeNeural' };
 
-function toggleTTS(){
-  ttsEnabled = !ttsEnabled;
-  const btn = document.getElementById('tts-toggle');
-  if(btn) btn.textContent = ttsEnabled ? '🔊' : '🔇';
-  if(!ttsEnabled){ ttsQueue = []; ttsPlaying = false; }
-}
-
-function setTTSVoice(gender){
-  if(gender === 'male'){
-    ttsVoice.narrator = 'th-TH-NiwatNeural';
-    ttsVoice.male     = 'th-TH-NiwatNeural';
-  } else {
-    ttsVoice.narrator = 'th-TH-PremwadeeNeural';
-    ttsVoice.female   = 'th-TH-PremwadeeNeural';
-  }
+function ttsStopAll(){
+  ttsQueue = [];
+  ttsPlaying = false;
+  if(ttsCurrentAudio){ ttsCurrentAudio.pause(); ttsCurrentAudio = null; }
+  if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
 }
 
 function drainTTSQueue(){
-  if(!ttsQueue.length){ ttsPlaying = false; return; }
+  if(!ttsQueue.length){
+    ttsPlaying = false;
+    if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
+    ttsCurrentAudio = null;
+    return;
+  }
   ttsPlaying = true;
   const seg   = ttsQueue.shift();
   const voice = ttsVoice[seg.voice] || ttsVoice.narrator;
   const srv   = SERVER_URL || '';
-  if(!srv){ ttsPlaying = false; return; }
+  if(!srv){ ttsStopAll(); return; }
   const audio = new Audio(`${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`);
+  ttsCurrentAudio = audio;
   audio.onended = drainTTSQueue;
   audio.onerror = drainTTSQueue;
   audio.play().catch(drainTTSQueue);
 }
 
 async function playTTS(btn){
+  // Toggle: if this button is already playing → stop
+  if(ttsCurrentBtn === btn){
+    ttsStopAll();
+    return;
+  }
+  // Stop any existing playback
+  ttsStopAll();
   const text = btn.dataset.text;
   if(!text) return;
   const srv = SERVER_URL || '';
   if(!srv) return;
-  ttsQueue   = [];
-  ttsPlaying = false;
+  ttsCurrentBtn = btn;
+  btn.textContent = '⏹';
   try {
     const r    = await fetch(`${srv}/tts/parse?text=${encodeURIComponent(text)}`);
     const data = await r.json();
@@ -1977,11 +1981,6 @@ async function playTTS(btn){
     ttsQueue = [{text, voice:'narrator'}];
   }
   drainTTSQueue();
-}
-
-function autoPlayTTS(text){
-  if(!ttsEnabled) return;
-  playTTS({ dataset: { text } });
 }
 
 const fc = document.getElementById('fx-canvas');
