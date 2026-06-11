@@ -1929,33 +1929,34 @@ setInterval(checkHealth, 12000);
 /* ════════════════════════════════════════════════
    TTS — Thai Text-to-Speech via edge-tts (segment queue)
 ════════════════════════════════════════════════ */
-let ttsQueue      = [];
+let ttsSegments   = [];   // parsed [{text, voice}]
+let ttsSegIdx     = 0;
 let ttsPlaying    = false;
 let ttsCurrentBtn = null;
 let _audioUnlocked = false;
 const ttsVoice = { narrator: 'th-TH-PremwadeeNeural', male: 'th-TH-NiwatNeural', female: 'th-TH-PremwadeeNeural' };
-const ttsAudio = document.getElementById('tts-audio');
-ttsAudio.onended = () => drainTTSQueue();
-ttsAudio.onerror = () => drainTTSQueue();
+const ttsAudio  = document.getElementById('tts-audio');
+
+/* Valid 1-sample silent WAV — used to user-activate ttsAudio on iOS within gesture */
+const _SILENCE = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==';
 
 /* Morse voice tag map — must match DM system prompt exactly */
-const MORSE_VOICE = { '•–• •': 'narrator', '–– •–': 'male', '••–• •': 'female' };
+const MORSE_VOICE  = { '•–• •': 'narrator', '–– •–': 'male', '••–• •': 'female' };
 const MORSE_TAG_RE = /^(•–• •|–– •–|••–• •)\s*$/m;
 
 function _stripNoise(text){
   return text
-    .replace(/\[[A-Z_]+:[^\]]*\]/g, '')           // game tags [HP:], [ROLL:], etc.
-    .replace(/\*+([^*]*)\*+/g, '$1')              // **bold** → text
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')       // emoji (main plane)
-    .replace(/[\u{2600}-\u{27BF}]/gu, '')          // misc symbols & dingbats
-    .replace(/[︀-️]/g, '')               // variation selectors
+    .replace(/\[[A-Z_]+:[^\]]*\]/g, '')       // game tags
+    .replace(/\*+([^*]*)\*+/g, '$1')           // **bold**
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')    // emoji main plane
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')       // misc symbols (swords, etc.)
+    .replace(/[︀-️]/g, '')            // variation selectors
     .replace(/\n+/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
 function parseMorseBlocks(text){
-  /* Split text on Morse tag lines → [{text, voice}] segments */
   const parts = text.split(MORSE_TAG_RE);
   const segs = [];
   let voice = 'narrator';
@@ -1974,68 +1975,60 @@ function parseMorseBlocks(text){
 }
 
 function stripMorseTags(text){
-  return text.replace(/(?:^|\n)(•–• •|–– •–|••–• •)[ \t]*(?=\n|$)/gm, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return text
+    .replace(/(?:^|\n)(•–• •|–– •–|••–• •)[ \t]*(?=\n|$)/gm, '\n')
+    .replace(/\n{3,}/g, '\n\n').trim();
 }
-
-/* Minimal silent MP3 — played immediately in gesture to user-activate ttsAudio on iOS */
-const _SILENCE = 'data:audio/mpeg;base64,/+MYxAAAAANIAAAAAExBTUUzLjk4LjIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 function _unlockAudio(){
   if(_audioUnlocked) return;
   _audioUnlocked = true;
-  /* Play silence synchronously in gesture — iOS marks ttsAudio as user-activated.
-     Subsequent play() calls on the SAME element are then allowed even after async ops. */
-  ttsAudio.src = _SILENCE;
-  ttsAudio.play().catch(() => {});
+  try{ new (window.AudioContext || window.webkitAudioContext)().resume(); }catch(e){}
 }
 
 function ttsStopAll(){
-  // Revoke pending blob URLs
-  ttsQueue.forEach(u => { try{ URL.revokeObjectURL(u); }catch(e){} });
-  ttsQueue = []; ttsPlaying = false;
-  ttsAudio.pause(); ttsAudio.src = '';
+  ttsSegments = []; ttsSegIdx = 0; ttsPlaying = false;
+  ttsAudio.pause();
+  ttsAudio.onended = null; ttsAudio.onerror = null;
+  ttsAudio.src = '';
   if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
 }
 
-function drainTTSQueue(){
-  /* ttsQueue holds pre-fetched blob: URLs — play sequentially, no network wait */
-  if(!ttsQueue.length){
+function _playSeg(idx){
+  /* Play segment at idx, chain to next via onended — iOS-safe */
+  if(!ttsCurrentBtn || idx >= ttsSegments.length){
     ttsPlaying = false;
     if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
     return;
   }
   ttsPlaying = true;
-  const url = ttsQueue.shift();
-  ttsAudio.onended = () => { try{ URL.revokeObjectURL(url); }catch(e){} drainTTSQueue(); };
-  ttsAudio.onerror = () => { try{ URL.revokeObjectURL(url); }catch(e){} drainTTSQueue(); };
-  ttsAudio.src = url;
-  ttsAudio.play().catch(() => { try{ URL.revokeObjectURL(url); }catch(e){} drainTTSQueue(); });
+  const {text, voice} = ttsSegments[idx];
+  const v   = ttsVoice[voice] || ttsVoice.narrator;
+  const srv = SERVER_URL || '';
+  if(!srv){ ttsStopAll(); return; }
+  ttsAudio.onended = () => _playSeg(idx + 1);
+  ttsAudio.onerror = () => _playSeg(idx + 1);
+  ttsAudio.src = `${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(text)}`;
+  ttsAudio.play().catch(() => _playSeg(idx + 1));
 }
 
 function playTTS(btn){
-  _unlockAudio(); // must be synchronous within gesture — unlocks iOS audio
+  _unlockAudio();
   if(ttsCurrentBtn === btn){ ttsStopAll(); return; }
   ttsStopAll();
   const raw = btn.dataset.raw || btn.dataset.text;
-  if(!raw) return;
-  const srv = SERVER_URL || '';
-  if(!srv) return;
+  if(!raw || !(SERVER_URL || '')) return;
+  const segs = parseMorseBlocks(raw);
+  if(!segs.length) return;
   ttsCurrentBtn = btn;
   btn.textContent = '⏹';
-  const segs = parseMorseBlocks(raw);
-  if(!segs.length){ ttsStopAll(); return; }
-  /* Pre-fetch ALL segments as Blobs in parallel → queue ready before playback starts → no gap */
-  Promise.all(segs.map(seg => {
-    const voice = ttsVoice[seg.voice] || ttsVoice.narrator;
-    return fetch(`${srv}/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(seg.text)}`)
-      .then(r => r.blob()).then(b => URL.createObjectURL(b)).catch(() => null);
-  })).then(urls => {
-    if(ttsCurrentBtn !== btn) return; // stopped while fetching
-    const valid = urls.filter(Boolean);
-    if(!valid.length){ ttsStopAll(); return; }
-    ttsQueue.push(...valid);
-    drainTTSQueue();
-  }).catch(() => ttsStopAll());
+  ttsSegments = segs;
+  /* iOS: play valid silence synchronously in gesture to unlock audio session.
+     onended/onerror then chain to real segments — iOS allows play() from onended. */
+  ttsAudio.onended = () => _playSeg(0);
+  ttsAudio.onerror = () => _playSeg(0);
+  ttsAudio.src = _SILENCE;
+  ttsAudio.play().catch(() => _playSeg(0));
 }
 
 const fc = document.getElementById('fx-canvas');
