@@ -2030,7 +2030,7 @@ function playTTS(btn){
         return r.blob();
       })
       .then(b => URL.createObjectURL(b))
-      .catch(e => { showToast(`fetch[${idx}] catch null`, 'red'); return null; });
+      .catch(e => { showToast(`fetch[${idx}] ERR:${e&&(e.name||e.message||String(e))||'?'} len=${text.length}`, 'red'); return null; });
   }
 
   function step(idx, urlPromise){
@@ -2063,12 +2063,19 @@ function playTTS(btn){
   }
 
   const firstFetch = doFetch(0);
-  ttsAudio.onerror = () => { showToast('silence onerror', 'red'); step(0, firstFetch); };
-  ttsAudio.onended = () => { showToast('silence ended', ''); step(0, firstFetch); };
+  let silenceHandled = false;
+  function onSilenceDone(tag){
+    if(silenceHandled) return;
+    silenceHandled = true;
+    showToast(`silence ${tag}`, tag==='onerror'?'red':'');
+    step(0, firstFetch);
+  }
+  ttsAudio.onerror = () => onSilenceDone('onerror');
+  ttsAudio.onended = () => onSilenceDone('ended');
   ttsAudio.src = _SILENCE;
   ttsAudio.play()
     .then(() => showToast('silence play() ok', ''))
-    .catch(e => { showToast(`silence play() fail: ${e&&e.name}`, 'red'); step(0, firstFetch); });
+    .catch(e => { showToast(`silence play() fail: ${e&&e.name}`, 'red'); onSilenceDone('play-fail'); });
 }
 
 const fc = document.getElementById('fx-canvas');
