@@ -1588,6 +1588,116 @@ function processDM(raw){
 }
 
 /* ════════════════════════════════════════════════
+   STREAMING DM CALL
+════════════════════════════════════════════════ */
+async function callDMStreaming(msg){
+  if(!roomId){ showToast('❌ ยังไม่ได้เข้าห้อง','fail'); throw new Error('no room'); }
+
+  // Create live sentry in #story
+  const story = document.getElementById('story');
+  const sentry = document.createElement('div'); sentry.className='sentry';
+  const lbl = document.createElement('div'); lbl.className='slbl dm'; lbl.textContent='🎲 DM';
+  const body = document.createElement('div'); body.className='sbody dm';
+  body.textContent='▌';
+  sentry.appendChild(lbl); sentry.appendChild(body);
+  story.appendChild(sentry);
+  scrollDown();
+
+  const payload = JSON.stringify({
+    room_id: roomId,
+    player_message: msg,
+    game_state:{
+      player:{ name:GS.player.name, hp:GS.player.hp, max_hp:GS.player.maxHp,
+               inventory:GS.player.inventory, exp:GS.player.exp,
+               level:GS.player.level, gold:GS.player.gold },
+      enemies: Object.values(GS.enemies).filter(e=>e.hp>0)
+        .map(e=>({name:e.name, hp:e.hp, max_hp:e.maxHp})),
+    },
+  });
+
+  let buffer = '';
+  let doneData = null;
+
+  try{
+    const r = await fetch(SERVER_URL+'/dm/stream', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: payload,
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+
+    const reader = r.body.getReader();
+    const dec    = new TextDecoder();
+    let   partial = '';
+
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      partial += dec.decode(value, {stream:true});
+
+      // SSE lines split by \n\n
+      const parts = partial.split('\n\n');
+      partial = parts.pop(); // keep incomplete last part
+
+      for(const part of parts){
+        const line = part.startsWith('data: ') ? part.slice(6) : part;
+        if(!line.trim()) continue;
+        let obj;
+        try{ obj = JSON.parse(line); }catch{ continue; }
+
+        if(obj.error) throw new Error(obj.error);
+
+        if(obj.chunk){
+          buffer += obj.chunk;
+          // Show rough cleaned text + cursor while streaming
+          const preview = buffer
+            .replace(/\[[A-Z_]+:[^\]]+\]/g,'')
+            .replace(/\[DICE RESULT:[^\]]*\]/gi,'')
+            .trim();
+          body.textContent = (preview || '▌') + (obj.done ? '' : '▌');
+          scrollDown();
+        }
+
+        if(obj.done){
+          doneData = obj;
+          body.textContent = buffer
+            .replace(/\[[A-Z_]+:[^\]]+\]/g,'')
+            .replace(/\[DICE RESULT:[^\]]*\]/gi,'')
+            .trim();
+        }
+      }
+    }
+  }catch(e){
+    sentry.remove();
+    throw e;
+  }
+
+  if(!doneData || !buffer){
+    sentry.remove();
+    throw new Error('empty stream response');
+  }
+
+  // Sync GS from room_snapshot (same as callDM)
+  const snap = doneData.room_snapshot;
+  if(snap?.player_state){
+    const ps = snap.player_state;
+    GS.player.hp    = ps.hp;
+    GS.player.maxHp = ps.max_hp;
+    if(ps.inventory) GS.player.inventory = ps.inventory;
+    if(ps.exp   != null) GS.player.exp   = ps.exp;
+    if(ps.level != null) GS.player.level = ps.level;
+    if(ps.gold  != null) GS.player.gold  = ps.gold;
+    if(snap.quest_main) GS.quest = snap.quest_main;
+  }
+
+  // Remove live sentry — processDM will create the final addMsg bubble
+  sentry.remove();
+
+  return {
+    dm_response: buffer + (doneData.mood ? `\n[MOOD:${doneData.mood}]` : ''),
+    room_snapshot: snap,
+  };
+}
+
+/* ════════════════════════════════════════════════
    SEND
 ════════════════════════════════════════════════ */
 async function sendAction(override){
@@ -1601,10 +1711,17 @@ async function sendAction(override){
   document.getElementById('send-btn').disabled = true;
 
   if(!text.startsWith('[DICE RESULT')) addMsg('👤 You', 'player', text, 'player');
-  const typing = addTyping();
 
-  const data = await callDM(text);
-  typing.remove(); waiting = false;
+  let data;
+  try{
+    data = await callDMStreaming(text);
+  }catch(_){
+    const typing = addTyping();
+    data = await callDM(text);
+    typing.remove();
+  }
+
+  waiting = false;
   document.getElementById('send-btn').disabled = false;
 
   if(!data) return;
@@ -2141,35 +2258,33 @@ window.addEventListener('load', ()=>{
     if(l.style.display !== 'none' && !l.classList.contains('fade-out')) loadRooms();
   }, 30000);
 
-  /* ── Auto-detect server URL from GitHub Gist ──────────────────
-     start_auto.py โพส URL ล่าสุดลง Gist ทุกครั้งที่เริ่ม server
-     เกมดึง URL มาเชื่อมต่ออัตโนมัติ ไม่ต้อง paste เอง
+  /* ── Auto-detect server URL — scan LAN candidates ─────────────
+     ลองเชื่อมต่อแต่ละ URL ตามลำดับ ใช้อันแรกที่ตอบ /health
   ────────────────────────────────────────────────────────────── */
-  const GIST_RAW = "https://gist.githubusercontent.com/makeamaw/76f8b3ae3e6bc234d8715f75bb89dbb8/raw/server_url.txt";
-  const gistReady = GIST_RAW.indexOf("PLACEHOLDER") === -1;
+  const SERVER_CANDIDATES = [
+    'http://localhost:8765',
+    'http://192.168.1.124:8765',
+  ];
 
-  if (gistReady && !saved) {
-    /* แสดง "กำลังค้นหา..." ขณะ fetch */
+  if (!saved) {
     const sEl = document.getElementById('server-url-status');
     if (sEl) { sEl.textContent = '🔍 กำลังค้นหา...'; sEl.style.color = 'var(--gold2)'; }
-  }
-
-  if (gistReady) {
-    fetch(GIST_RAW + "?t=" + Date.now())
-      .then(r => r.text())
-      .then(u => {
-        u = u.trim();
-        if (u && u.startsWith('http') && u !== 'none' && u !== SERVER_URL) {
-          const inp = document.getElementById('server-url-input');
-          if (inp) inp.value = u;
-          applyServerUrl(u);   /* applyServerUrl เรียก loadRooms */
-          return;
-        }
-        loadRooms();           /* Gist ว่าง/none → โหลดปกติ */
-      })
-      .catch(() => loadRooms()); /* fetch ล้มเหลว → โหลดปกติ */
+    (async () => {
+      for (const url of SERVER_CANDIDATES) {
+        try {
+          const r = await fetch(url + '/health', { signal: AbortSignal.timeout(3000) });
+          if (r.ok) {
+            const inp = document.getElementById('server-url-input');
+            if (inp) inp.value = url;
+            applyServerUrl(url);
+            return;
+          }
+        } catch (_) {}
+      }
+      loadRooms();
+    })();
   } else {
-    loadRooms();  /* Gist ยังไม่ตั้งค่า → โหลดปกติ */
+    loadRooms();
   }
 });
 
