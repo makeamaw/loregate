@@ -1951,11 +1951,14 @@ const MORSE_TAG_RE = /^(•–• •|–– •–|••–• •)\s*$/m;
 
 function _stripNoise(text){
   return text
-    .replace(/\[[A-Z_]+:[^\]]*\]/g, '')       // game tags
-    .replace(/\*+([^*]*)\*+/g, '$1')           // **bold**
+    .replace(/\[[^\]]*\]/g, '')                 // all [brackets] incl scene tags
+    .replace(/\*+([^*]*)\*+/g, '$1')           // **bold** / *italic*
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')    // emoji main plane
     .replace(/[\u{2600}-\u{26FF}]/gu, '')       // misc symbols (swords, etc.)
     .replace(/[︀-️]/g, '')            // variation selectors
+    .replace(/[""]/g, '"')                      // curly quotes → straight
+    .replace(/['']/g, "'")                      // curly apostrophes → straight
+    .replace(/\s*---+\s*/g, ' ')               // --- separators
     .replace(/\n+/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -2037,10 +2040,15 @@ function playTTS(btn){
         try{URL.revokeObjectURL(url);}catch(e){}
         step(idx+1, nextP);
       }
-      ttsAudio.onended = advance;
-      ttsAudio.onerror = advance;
+      /* Clear handlers BEFORE changing src — iOS fires spurious onerror
+         on src change; we set real handlers only after play() resolves
+         (microtasks run before queued DOM events, so this is safe). */
+      ttsAudio.onended = null;
+      ttsAudio.onerror = null;
       ttsAudio.src = url;
-      ttsAudio.play().catch(() => advance());
+      ttsAudio.play()
+        .then(() => { ttsAudio.onended = advance; ttsAudio.onerror = advance; })
+        .catch(() => advance());
     });
   }
 
