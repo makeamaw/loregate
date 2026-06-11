@@ -1403,8 +1403,7 @@ function syncPlayerCard(){
     bi.innerHTML = '<span class="bd-empty">— ยังไม่มีไอเทม —</span>';
   }
   updateStripMini();
-  // TTS voice: auto-select based on player gender
-  // voice is always per-segment (narrator/male/female from /tts/parse)
+  // TTS voice: per-segment (narrator/male/female from Morse tags)
 }
 
 function toggleBag(){
@@ -1934,8 +1933,6 @@ setInterval(checkHealth, 12000);
 /* ════════════════════════════════════════════════
    TTS — Thai Text-to-Speech via edge-tts (segment queue)
 ════════════════════════════════════════════════ */
-let ttsSegments   = [];   // parsed [{text, voice}]
-let ttsSegIdx     = 0;
 let ttsPlaying    = false;
 let ttsCurrentBtn = null;
 let _audioUnlocked = false;
@@ -1995,7 +1992,7 @@ function _unlockAudio(){
 }
 
 function ttsStopAll(){
-  ttsSegments = []; ttsSegIdx = 0; ttsPlaying = false;
+  ttsPlaying = false;
   ttsAudio.pause();
   ttsAudio.onended = null; ttsAudio.onerror = null;
   ttsAudio.src = '';
@@ -2018,7 +2015,11 @@ function playTTS(btn){
     if(!ttsCurrentBtn || idx >= segs.length) return Promise.resolve(null);
     const {text, voice} = segs[idx];
     const v = ttsVoice[voice] || ttsVoice.narrator;
-    return fetch(`${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(text)}`)
+    return fetch(`${srv}/tts`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text, voice: v})
+      })
       .then(r => { if(!r.ok) throw 0; return r.blob(); })
       .then(b => URL.createObjectURL(b))
       .catch(() => null);
