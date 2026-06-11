@@ -1991,15 +1991,11 @@ function _unlockAudio(){
   try{ new (window.AudioContext || window.webkitAudioContext)().resume(); }catch(e){}
 }
 
-let _ttsBlobUrls = [];
-
 function ttsStopAll(){
   ttsSegments = []; ttsSegIdx = 0; ttsPlaying = false;
   ttsAudio.pause();
   ttsAudio.onended = null; ttsAudio.onerror = null;
   ttsAudio.src = '';
-  _ttsBlobUrls.forEach(u => { try{ URL.revokeObjectURL(u); }catch(e){} });
-  _ttsBlobUrls = [];
   if(ttsCurrentBtn){ ttsCurrentBtn.textContent = '▶'; ttsCurrentBtn = null; }
 }
 
@@ -2013,49 +2009,51 @@ function playTTS(btn){
   if(!segs.length) return;
   ttsCurrentBtn = btn;
   btn.textContent = '⏹';
-  ttsSegments = segs;
   const srv = SERVER_URL;
 
-  /* Pre-fetch ALL segments as Blobs in parallel — iOS gets fully-loaded data, no streaming gap */
-  const blobPromises = segs.map(seg => {
-    const v = ttsVoice[seg.voice] || ttsVoice.narrator;
-    return fetch(`${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(seg.text)}`)
+  /* PIPELINE: fetch seg[idx] as blob, play it, then fetch seg[idx+1] while playing.
+     — Only 1 server request at a time → no server overload
+     — Pre-fetch during playback → no long gaps between segments */
+  function doFetch(idx){
+    if(!ttsCurrentBtn || idx >= segs.length) return Promise.resolve(null);
+    const {text, voice} = segs[idx];
+    const v = ttsVoice[voice] || ttsVoice.narrator;
+    return fetch(`${srv}/tts?voice=${encodeURIComponent(v)}&text=${encodeURIComponent(text)}`)
       .then(r => { if(!r.ok) throw 0; return r.blob(); })
       .then(b => URL.createObjectURL(b))
       .catch(() => null);
-  });
+  }
 
-  /* Play silence NOW (in gesture) → iOS marks ttsAudio as user-activated permanently.
-     When silence ends, blobs are usually ready; if not, we wait (still fine — element is activated). */
-  ttsAudio.onerror = () => ttsStopAll();
-  ttsAudio.onended = () => {
-    if(ttsCurrentBtn !== btn) return;
-    Promise.all(blobPromises).then(urls => {
-      if(ttsCurrentBtn !== btn){ urls.forEach(u=>u&&URL.revokeObjectURL(u)); return; }
-      const valid = urls.filter(Boolean);
-      if(!valid.length){ ttsStopAll(); return; }
-      _ttsBlobUrls = valid;
-      let i = 0;
-      function next(){
-        if(!ttsCurrentBtn || i >= valid.length){
-          _ttsBlobUrls.forEach(u=>{ try{URL.revokeObjectURL(u);}catch(e){} });
-          _ttsBlobUrls = [];
-          ttsPlaying = false;
-          if(ttsCurrentBtn){ ttsCurrentBtn.textContent='▶'; ttsCurrentBtn=null; }
-          return;
-        }
-        ttsPlaying = true;
-        const url = valid[i++];
-        ttsAudio.onended = next;
-        ttsAudio.onerror = next; // skip a failed blob, continue
-        ttsAudio.src = url;
-        ttsAudio.play().catch(() => {}); // element already activated — should resolve
-      }
-      next();
-    }).catch(() => ttsStopAll());
-  };
+  function step(idx, urlPromise){
+    if(!ttsCurrentBtn) return;
+    if(idx >= segs.length){
+      ttsPlaying = false;
+      if(ttsCurrentBtn){ ttsCurrentBtn.textContent='▶'; ttsCurrentBtn=null; }
+      return;
+    }
+    ttsPlaying = true;
+    urlPromise.then(url => {
+      if(!ttsCurrentBtn) return;
+      if(!url){ step(idx+1, doFetch(idx+1)); return; } // fetch failed → skip
+
+      /* Start fetching the NEXT segment immediately while we set up this one */
+      const nextP = doFetch(idx+1);
+
+      function advance(){ try{URL.revokeObjectURL(url);}catch(e){} step(idx+1, nextP); }
+      ttsAudio.onended = advance;
+      ttsAudio.onerror = advance;
+      ttsAudio.src = url;
+      ttsAudio.play().catch(advance);
+    });
+  }
+
+  /* Kick off fetch of first segment immediately; play silence to unlock iOS audio.
+     When silence ends (nearly instant), first fetch is likely done or nearly done. */
+  const firstFetch = doFetch(0);
+  ttsAudio.onerror = () => step(0, firstFetch);
+  ttsAudio.onended = () => step(0, firstFetch);
   ttsAudio.src = _SILENCE;
-  ttsAudio.play().catch(() => ttsStopAll());
+  ttsAudio.play().catch(() => step(0, firstFetch));
 }
 
 const fc = document.getElementById('fx-canvas');
