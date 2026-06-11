@@ -2258,31 +2258,37 @@ window.addEventListener('load', ()=>{
     if(l.style.display !== 'none' && !l.classList.contains('fade-out')) loadRooms();
   }, 30000);
 
-  /* ── Auto-detect server URL — scan LAN candidates ─────────────
-     ลองเชื่อมต่อแต่ละ URL ตามลำดับ ใช้อันแรกที่ตอบ /health
+  /* ── Auto-detect server URL ─────────────────────────────────────
+     1. ลอง localhost ก่อน (เล่นบน PC เอง)
+     2. ดึง public URL จาก Gist (ผ่าน Cloudflare Tunnel — สำหรับมือถือ)
   ────────────────────────────────────────────────────────────── */
-  const SERVER_CANDIDATES = [
-    'http://localhost:8765',
-    'http://192.168.1.124:8765',
-  ];
+  const GIST_URL = "https://gist.githubusercontent.com/makeamaw/76f8b3ae3e6bc234d8715f75bb89dbb8/raw/server_url.txt";
+
+  async function discoverServer() {
+    try {
+      const r = await fetch("http://localhost:8765/health", { signal: AbortSignal.timeout(1500) });
+      if (r.ok) return "http://localhost:8765";
+    } catch (_) {}
+    try {
+      const r = await fetch(GIST_URL + "?t=" + Date.now(), { signal: AbortSignal.timeout(5000) });
+      const url = (await r.text()).trim();
+      if (url && url !== "none" && url.startsWith("http")) return url;
+    } catch (_) {}
+    return null;
+  }
 
   if (!saved) {
     const sEl = document.getElementById('server-url-status');
     if (sEl) { sEl.textContent = '🔍 กำลังค้นหา...'; sEl.style.color = 'var(--gold2)'; }
-    (async () => {
-      for (const url of SERVER_CANDIDATES) {
-        try {
-          const r = await fetch(url + '/health', { signal: AbortSignal.timeout(3000) });
-          if (r.ok) {
-            const inp = document.getElementById('server-url-input');
-            if (inp) inp.value = url;
-            applyServerUrl(url);
-            return;
-          }
-        } catch (_) {}
+    discoverServer().then(url => {
+      if (url) {
+        const inp = document.getElementById('server-url-input');
+        if (inp) inp.value = url;
+        applyServerUrl(url);
+      } else {
+        loadRooms();
       }
-      loadRooms();
-    })();
+    });
   } else {
     loadRooms();
   }
