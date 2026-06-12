@@ -1600,7 +1600,10 @@ function processDM(raw){
 
   // Extract mood for ambient engine, then strip tag from all downstream processing
   const _mood = _extractMood(raw);
-  if(_mood){ if(_ambEnabled){_ambInit();_ambSetMood(_mood);} }
+  if(_mood){
+    if(_ambEnabled){ _ambInit(); _ambCtx.resume(); _ambSetMood(_mood); }
+    else { _ambMood = _mood; } // cache mood so toggleAmb() starts sound immediately when user enables it
+  }
   raw = _stripMoodTag(raw);
 
   // HP tags
@@ -2010,13 +2013,14 @@ async function generateCampaign(){
     });
     if(!r.ok) throw new Error('HTTP '+r.status);
     const d = await r.json();
-    document.getElementById('m-name').value   = d.name         || '';
-    document.getElementById('m-theme').value  = d.theme        || '';
-    document.getElementById('m-player').value = d.player_name  || '';
-    document.getElementById('m-class').value  = d.player_class || '';
-    document.getElementById('m-hp').value     = d.player_hp    || 20;
+    document.getElementById('m-name').value   = d.display_name  || d.name  || '';
+    document.getElementById('m-theme').value  = d.theme         || '';
+    document.getElementById('m-player').value = d.player_name   || '';
+    document.getElementById('m-class').value  = d.player_class  || '';
+    document.getElementById('m-hp').value     = d.player_max_hp || d.player_hp || 20;
     const ob = document.getElementById('m-opening-box');
-    if(d.opening){ document.getElementById('m-opening').textContent=d.opening; ob.style.display='block'; }
+    const opening = d.opening_scene || d.opening || '';
+    if(opening){ document.getElementById('m-opening').textContent=opening; ob.style.display='block'; }
     else { ob.style.display='none'; }
     document.getElementById('modal-loading').style.display= 'none';
     document.getElementById('modal-step2').style.display  = 'block';
@@ -2218,7 +2222,7 @@ function playTTS(btn){
   if(ttsCurrentBtn === btn){ ttsStopAll(); return; }
   ttsStopAll();
   const raw = btn.dataset.raw || btn.dataset.text;
-  if(!raw || !(SERVER_URL || '')) return;
+  if(!raw) return;
   const segs = parseMorseBlocks(raw);
   if(!segs.length) return;
   ttsCurrentBtn = btn;
